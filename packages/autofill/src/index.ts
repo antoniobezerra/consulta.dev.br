@@ -7,4 +7,3 @@
  */
 export const AUTOFILL_PACKAGE_NAME = "@consulta-dev/autofill";
 export const AUTOFILL_PROTOCOL_VERSION = 1;
-

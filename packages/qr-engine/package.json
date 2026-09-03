@@ -33,4 +33,3 @@
     "benchmark": "node ./scripts/benchmark-placeholder.mjs"
   }
 }
-

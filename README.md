@@ -64,4 +64,3 @@ O repositório está no início da implementação pública. A API e o produto d
 ## Licença
 
 Código próprio licenciado sob [Apache-2.0](LICENSE). Dependências e artefatos de terceiros têm seus avisos em [third-party](third-party/README.md).
-

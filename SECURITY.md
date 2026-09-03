@@ -19,4 +19,3 @@ Confirmaremos o recebimento e coordenaremos a divulgação após uma correção 
 São especialmente relevantes: validação de origem, comunicação `postMessage`, exposição de API keys, bypass de sessão, XSS, acesso indevido à câmera, vazamento de dados pessoais e cadeia de publicação.
 
 O repositório público não recebe documentos reais. Remova imediatamente qualquer dado pessoal ou segredo enviado por engano e avise os mantenedores.
-

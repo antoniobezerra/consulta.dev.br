@@ -26,4 +26,3 @@ Mudanças no protocolo, origem permitida, telemetria, autenticação ou publica�
 ## Commits
 
 Prefira Conventional Commits, por exemplo `feat(autofill): add session handshake` ou `fix(embed): validate parent origin`.
-

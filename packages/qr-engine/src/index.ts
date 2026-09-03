@@ -13,4 +13,3 @@ export interface QrEngine {
  * to the VIO decoder.
  */
 export const QR_ENGINE_INTERFACE_VERSION = 1;
-

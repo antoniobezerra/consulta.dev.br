@@ -5,4 +5,3 @@ if (!app) {
 }
 
 app.textContent = "Consulta Autofill embed is being initialized.";
-

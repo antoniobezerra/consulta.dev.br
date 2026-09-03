@@ -8,4 +8,3 @@ describe("public workspace", () => {
     expect(AUTOFILL_PROTOCOL_VERSION).toBe(QR_ENGINE_INTERFACE_VERSION);
   });
 });
-

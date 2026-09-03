@@ -30,4 +30,3 @@ Mensagens nunca usam `targetOrigin: "*"`.
 ## QR Engine
 
 O contrato público do engine é `prepare()`, `scan()` e `dispose()`. O baseline é `zxing-wasm`; a versão QR-only baseada em ZXing-C++ só será promovida quando cumprir os gates de tamanho, desempenho, igualdade de bytes e memória definidos no plano privado.
-
