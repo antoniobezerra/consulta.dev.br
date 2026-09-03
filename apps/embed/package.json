@@ -1,0 +1,12 @@
+{
+  "name": "@consulta-dev/embed",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Hosted Consulta Autofill embed shell.",
+  "type": "module",
+  "scripts": {
+    "build": "vite build",
+    "typecheck": "tsc --noEmit"
+  }
+}
+

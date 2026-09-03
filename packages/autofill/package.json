@@ -1,0 +1,35 @@
+{
+  "name": "@consulta-dev/autofill",
+  "version": "0.0.0",
+  "description": "Consulta Autofill web component for document-assisted form completion.",
+  "license": "Apache-2.0",
+  "type": "module",
+  "sideEffects": false,
+  "files": ["dist"],
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/antoniobezerra/consulta.dev.br.git",
+    "directory": "packages/autofill"
+  },
+  "bugs": {
+    "url": "https://github.com/antoniobezerra/consulta.dev.br/issues"
+  },
+  "homepage": "https://github.com/antoniobezerra/consulta.dev.br#readme",
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "build": "vite build",
+    "typecheck": "tsc --noEmit"
+  }
+}
+
