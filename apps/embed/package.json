@@ -12,5 +12,8 @@
   "scripts": {
     "build": "vite build",
     "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "jsqr": "1.4.0"
   }
 }

@@ -26,4 +26,11 @@ Antes de promover o build QR-only próprio, registre aqui o commit do ZXing-C++,
 - Artefato: worker versionado emitido pelo build do embed.
 - Licença: Apache-2.0. A execução de JavaScript/XFA do PDF fica desabilitada no fluxo do Autofill.
 
+## jsQR 1.4.0 (somente benchmark experimental)
+
+- Pacote: [`jsqr@1.4.0`](https://www.npmjs.com/package/jsqr/v/1.4.0)
+- Uso: leitura do fixture sintético no harness de benchmark de desenvolvimento para referência de mediana/p95; ele não participa da seleção, do fallback ou da promoção do engine.
+- Licença: Apache-2.0.
+- Distribuição: dependência de desenvolvimento de `apps/embed`; a página de benchmark é excluída do build hospedado do embed.
+
 Não copie fontes, documentos ou assets privados para este diretório.

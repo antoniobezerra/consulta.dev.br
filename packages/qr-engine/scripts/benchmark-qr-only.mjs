@@ -89,7 +89,7 @@ const server = await createViteServer({
   // This harness only imports the QR engine. Prevent Vite from scanning the
   // production embed entrypoint (which intentionally depends on other
   // workspace packages that are not part of this isolated benchmark).
-  optimizeDeps: { noDiscovery: true },
+  optimizeDeps: { noDiscovery: true, include: ["jsqr"] },
   server: { host: "127.0.0.1", port: 0, strictPort: true },
   plugins: [
     {

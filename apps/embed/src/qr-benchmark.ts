@@ -1,4 +1,5 @@
 import { ConsultaQrOnlyEngine, ZXingWasmQrEngine, type QrEngine } from "@consulta-dev/qr-engine";
+import jsQR from "jsqr";
 import { EmbedQrScanner } from "./qr-scanner.js";
 
 type BenchmarkFixture = {
@@ -25,6 +26,19 @@ type BenchmarkResult = {
   baseline_median_ms: number;
   candidate_median_ms: number;
   candidate_slowdown_percent: number;
+  baseline_p95_ms: number;
+  candidate_p95_ms: number;
+  candidate_p95_slowdown_percent: number;
+  baseline_initialization_ms: number;
+  candidate_initialization_ms: number;
+  candidate_initialization_slowdown_percent: number;
+  experimental_jsqr: {
+    available: boolean;
+    raw_bytes: true;
+    samples?: number;
+    median_ms?: number;
+    p95_ms?: number;
+  };
   candidate_heap_after_warmup_bytes: number;
   candidate_heap_after_cycles_bytes: number;
 };
@@ -47,6 +61,30 @@ function median(samples: number[]): number {
   const sorted = [...samples].sort((left, right) => left - right);
   const middle = Math.floor(sorted.length / 2);
   return sorted.length % 2 ? sorted[middle] : (sorted[middle - 1] + sorted[middle]) / 2;
+}
+
+function percentile(samples: number[], percent: number): number {
+  if (!samples.length) throw new Error("O benchmark não coletou amostras.");
+  const sorted = [...samples].sort((left, right) => left - right);
+  const index = (sorted.length - 1) * percent;
+  const lower = Math.floor(index);
+  const upper = Math.ceil(index);
+  if (lower === upper) return sorted[lower];
+  return sorted[lower] + (sorted[upper] - sorted[lower]) * (index - lower);
+}
+
+function slowdownPercent(candidate: number, baseline: number, label: string): number {
+  if (!Number.isFinite(baseline) || baseline <= 0) throw new Error(`A referência de ${label} do baseline é inválida.`);
+  if (!Number.isFinite(candidate) || candidate <= 0) throw new Error(`A medição de ${label} do candidato é inválida.`);
+  return ((candidate / baseline) - 1) * 100;
+}
+
+function assertSlowdownWithinBudget(candidate: number, baseline: number, label: string, maximum: number): number {
+  const slowdown = slowdownPercent(candidate, baseline, label);
+  if (slowdown > maximum) {
+    throw new Error(`O candidato ficou ${slowdown.toFixed(2)}% mais lento em ${label}; máximo permitido: ${maximum}%.`);
+  }
+  return slowdown;
 }
 
 function bytesFromBase64(value: string): Uint8Array {
@@ -116,6 +154,54 @@ async function timedSample(engine: QrEngine, image: ImageData, expectedSha256: s
     return elapsed / SCANS_PER_SAMPLE;
   } finally {
     for (const bytes of results) bytes.fill(0);
+  }
+}
+
+function readJsQr(image: ImageData): Uint8Array {
+  const result = jsQR(image.data, image.width, image.height, { inversionAttempts: "attemptBoth" });
+  if (!result) throw new Error("O jsQR não encontrou o QR Code sintético.");
+  return Uint8Array.from(result.binaryData);
+}
+
+async function timedJsQrSample(image: ImageData, expectedSha256: string): Promise<number> {
+  const results: Uint8Array[] = [];
+  const started = performance.now();
+  try {
+    for (let index = 0; index < SCANS_PER_SAMPLE; index += 1) results.push(readJsQr(image));
+    const elapsed = performance.now() - started;
+    for (const bytes of results) await assertExpectedBytes(bytes, expectedSha256);
+    return elapsed / SCANS_PER_SAMPLE;
+  } finally {
+    for (const bytes of results) bytes.fill(0);
+  }
+}
+
+async function measureJsQrReference(image: ImageData, expectedSha256: string): Promise<BenchmarkResult["experimental_jsqr"]> {
+  try {
+    for (let index = 0; index < WARMUP_SCANS; index += 1) {
+      const bytes = readJsQr(image);
+      try {
+        await assertExpectedBytes(bytes, expectedSha256);
+      } finally {
+        bytes.fill(0);
+      }
+    }
+    const samples: number[] = [];
+    for (let index = 0; index < MEASURED_SCANS; index += 1) {
+      samples.push(await timedJsQrSample(image, expectedSha256));
+    }
+    return {
+      available: true,
+      raw_bytes: true,
+      samples: MEASURED_SCANS,
+      median_ms: Number(median(samples).toFixed(4)),
+      p95_ms: Number(percentile(samples, 0.95).toFixed(4)),
+    };
+  } catch {
+    // jsQR is a non-gating reference only. Its result must never change the
+    // selected engine or turn an otherwise valid QR-only candidate into a
+    // release decision.
+    return { available: false, raw_bytes: true };
   }
 }
 
@@ -196,8 +282,18 @@ export async function runQrBenchmark(options: BenchmarkOptions): Promise<Benchma
   const candidateSamples: number[] = [];
 
   try {
+    const baselineInitializationStarted = performance.now();
     await baseline.prepare();
+    const baselineInitialization = performance.now() - baselineInitializationStarted;
+    const candidateInitializationStarted = performance.now();
     await candidate.prepare();
+    const candidateInitialization = performance.now() - candidateInitializationStarted;
+    const initializationSlowdown = assertSlowdownWithinBudget(
+      candidateInitialization,
+      baselineInitialization,
+      "inicialização",
+      options.maximumSlowdownPercent,
+    );
     for (let index = 0; index < WARMUP_SCANS; index += 1) {
       await scanExpected(baseline, image, image.expectedSha256);
       await scanExpected(candidate, image, image.expectedSha256);
@@ -230,11 +326,11 @@ export async function runQrBenchmark(options: BenchmarkOptions): Promise<Benchma
     }
     const baselineMedian = median(baselineSamples);
     const candidateMedian = median(candidateSamples);
-    if (baselineMedian <= 0) throw new Error("A mediana do baseline é inválida.");
-    const slowdownPercent = ((candidateMedian / baselineMedian) - 1) * 100;
-    if (slowdownPercent > options.maximumSlowdownPercent) {
-      throw new Error(`O candidato ficou ${slowdownPercent.toFixed(2)}% mais lento; máximo permitido: ${options.maximumSlowdownPercent}%.`);
-    }
+    const medianSlowdown = assertSlowdownWithinBudget(candidateMedian, baselineMedian, "mediana", options.maximumSlowdownPercent);
+    const baselineP95 = percentile(baselineSamples, 0.95);
+    const candidateP95 = percentile(candidateSamples, 0.95);
+    const p95Slowdown = assertSlowdownWithinBudget(candidateP95, baselineP95, "p95", options.maximumSlowdownPercent);
+    const jsQrReference = await measureJsQrReference(image, image.expectedSha256);
     return {
       worker_probe: true,
       fixture: { width: image.width, height: image.height, pixels: image.width * image.height },
@@ -243,7 +339,14 @@ export async function runQrBenchmark(options: BenchmarkOptions): Promise<Benchma
       cycles: TOTAL_SCANS,
       baseline_median_ms: Number(baselineMedian.toFixed(4)),
       candidate_median_ms: Number(candidateMedian.toFixed(4)),
-      candidate_slowdown_percent: Number(slowdownPercent.toFixed(2)),
+      candidate_slowdown_percent: Number(medianSlowdown.toFixed(2)),
+      baseline_p95_ms: Number(baselineP95.toFixed(4)),
+      candidate_p95_ms: Number(candidateP95.toFixed(4)),
+      candidate_p95_slowdown_percent: Number(p95Slowdown.toFixed(2)),
+      baseline_initialization_ms: Number(baselineInitialization.toFixed(4)),
+      candidate_initialization_ms: Number(candidateInitialization.toFixed(4)),
+      candidate_initialization_slowdown_percent: Number(initializationSlowdown.toFixed(2)),
+      experimental_jsqr: jsQrReference,
       candidate_heap_after_warmup_bytes: heapAfterWarmup,
       candidate_heap_after_cycles_bytes: heapAfterCycles,
     };
