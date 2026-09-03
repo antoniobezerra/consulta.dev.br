@@ -70,6 +70,8 @@ Para a integração HTML mais curta, use `<consulta-autofill-field>`: ele posici
 
 Os exemplos de ponte segura para Next.js, Express, Laravel, FastAPI, Go, Spring Boot e ASP.NET Core ficam em [examples/backend](examples/backend).
 
+Para retomar o trabalho com os limites público/privado, verificações e pré-requisitos de produção documentados, consulte o [runbook de implementação](docs/IMPLEMENTATION_RUNBOOK.md).
+
 O schema de referência do contrato v1 está em [packages/autofill/contracts/v1/autofill.schema.json](packages/autofill/contracts/v1/autofill.schema.json). Ele é distribuído junto com `@consulta-dev/autofill`.
 
 ## Status
