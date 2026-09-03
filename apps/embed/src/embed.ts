@@ -16,7 +16,10 @@ const MAX_UPLOAD_BYTES = 10 * 1024 * 1024;
 const MAX_PDF_PAGES = 3;
 const MAX_RENDER_EDGE = 2_048;
 const MAX_PHOTO_BYTES = 5 * 1024 * 1024;
-const readerWasmUrl = new URL(`${import.meta.env.BASE_URL}zxing_reader.wasm`, window.location.origin).toString();
+// The entry bundle is emitted below assets/, while the baseline WASM is at
+// the root of the immutable embed release. Resolve against the module URL so
+// this works both below /embed/v<version>/ on the CDN and in Vite dev mode.
+const readerWasmUrl = new URL(/* @vite-ignore */ "../zxing_reader.wasm", import.meta.url).toString();
 const qrOnlyModuleUrl = import.meta.env.VITE_CONSULTA_QR_ONLY_MODULE_URL?.trim();
 const qrOnlyWasmUrl = import.meta.env.VITE_CONSULTA_QR_ONLY_WASM_URL?.trim();
 

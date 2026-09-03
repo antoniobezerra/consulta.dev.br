@@ -11,7 +11,8 @@
     "pnpm": ">=11.5.0 <12.0.0"
   },
   "scripts": {
-    "build": "pnpm --filter @consulta-dev/qr-engine run build && pnpm --filter @consulta-dev/autofill run build && pnpm --filter @consulta-dev/embed run build",
+    "build": "pnpm --filter @consulta-dev/qr-engine run build && pnpm --filter @consulta-dev/autofill run build && pnpm --filter @consulta-dev/embed run build && pnpm embed:verify-versioned",
+    "embed:verify-versioned": "node ./apps/embed/scripts/verify-versioned-build.mjs",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",

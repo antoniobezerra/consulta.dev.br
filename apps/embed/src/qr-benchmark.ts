@@ -54,7 +54,7 @@ const WARMUP_SCANS = 5;
 const MEASURED_SCANS = 30;
 const SCANS_PER_SAMPLE = 5;
 const TOTAL_SCANS = 100;
-const readerWasmUrl = new URL(`${import.meta.env.BASE_URL}zxing_reader.wasm`, window.location.origin).toString();
+const readerWasmUrl = new URL(/* @vite-ignore */ "../zxing_reader.wasm", import.meta.url).toString();
 
 function median(samples: number[]): number {
   if (!samples.length) throw new Error("O benchmark não coletou amostras.");

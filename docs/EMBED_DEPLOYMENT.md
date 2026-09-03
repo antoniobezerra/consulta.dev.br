@@ -59,8 +59,8 @@ O componente já fornece `sandbox="allow-scripts allow-same-origin"` e
 
 ## Ativos imutáveis
 
-Os arquivos com hash — loader, bundle, Worker, WASM, PDF worker e manifestos
-— podem usar:
+Os assets de uma release imutável — loader, bundle, Worker, WASM, PDF worker e
+manifestos — podem usar:
 
 ```http
 Cache-Control: public, max-age=31536000, immutable
@@ -70,6 +70,43 @@ X-Content-Type-Options: nosniff
 O alias `/v1/` e qualquer HTML sem hash usam no máximo cinco minutos de cache;
 o shell com CSP por projeto continua `no-store`. Publique primeiro a versão
 imutável, valide sua integridade e só então mova o alias.
+
+### Layout da release do embed
+
+O build do embed é propositalmente relativo e precisa ser publicado sob uma
+versão exata, por exemplo `https://cdn.consulta.dev.br/embed/v1.0.0/`:
+
+```text
+embed/v1.0.0/
+├── index.html
+├── zxing_reader.wasm
+└── assets/
+    ├── consulta-embed.js
+    ├── consulta-embed.css
+    ├── qr-worker-<hash>.js
+    └── pdf.worker.min-<hash>.mjs
+```
+
+O servidor do shell deve montar o HTML por projeto com o JS e CSS de nomes
+estáveis acima, e incluir seus valores `sha384-...` de SRI extraídos do
+`release-manifest.json`. A configuração correspondente é:
+
+```text
+AUTOFILL_EMBED_ASSET_BASE_URL=https://cdn.consulta.dev.br/embed/v1.0.0/
+AUTOFILL_EMBED_SCRIPT_INTEGRITY=sha384-...
+AUTOFILL_EMBED_STYLESHEET_INTEGRITY=sha384-...
+```
+
+Não aponte essa configuração para o alias mutável `/embed/v1/`. Antes de
+publicar, `pnpm embed:verify-versioned` confirma que `index.html`, o Worker e
+o WASM continuam resolvendo dentro do diretório versionado. O E2E também monta
+o build em `/embed/v0.0.0/` e exercita o Worker nos três navegadores.
+
+Como o documento do shell carrega módulos de outra origem, o CDN precisa
+responder os assets com `Access-Control-Allow-Origin: https://embed.consulta.dev.br`
+(sem cookies), além de `X-Content-Type-Options: nosniff`. Não use `*` como
+política de produção por conveniência; cada ambiente de embed deve estar
+explicitamente autorizado.
 
 ## Checklist operacional
 
