@@ -8,6 +8,12 @@ npm install
 npm start
 ```
 
+Para executar os testes da ponte com upstream sintético:
+
+```bash
+npm test
+```
+
 Exponha o componente com `endpoint="/api/consulta-autofill"` e, para o funil
 sem PII, `metrics-endpoint="/api/consulta-autofill/metrics"`. Antes de
 produção, conecte `requirePartnerAccess` à autenticação/autorização do seu

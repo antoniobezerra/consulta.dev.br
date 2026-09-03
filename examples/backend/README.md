@@ -10,13 +10,16 @@ POST /api/consulta-autofill/metrics  # opcional, recomendado
 
 | Stack | Estado |
 |---|---|
-| [Next.js](nextjs) | App Router, Route Handler Node. |
-| [Express](express) | Servidor Node executável. |
-| [Laravel](laravel) | Controller, config e rotas para projeto Laravel. |
-| [FastAPI](fastapi) | Aplicação Python executável. |
-| [Go](go) | Servidor `net/http` executável. |
+| [Next.js](nextjs) | App Router, Route Handler Node e teste de handler. |
+| [Express](express) | Servidor Node executável e teste HTTP. |
+| [Laravel](laravel) | Controller, config, rotas e testes de feature. |
+| [FastAPI](fastapi) | Aplicação Python e testes ASGI. |
+| [Go](go) | Servidor `net/http` e testes com `httptest`. |
 | [Spring Boot](spring-boot) | Java 17+, Maven, controller e upstream simulado. |
 | [ASP.NET Core](aspnet-core) | .NET 10 LTS Minimal API e `HttpMessageHandler` simulado. |
+
+O workflow **Backend examples** executa os sete exemplos contra upstreams
+sintéticos. Nenhum teste usa uma chave, QR, foto ou documento real.
 
 `/metrics` aceita apenas `protocol_version`, `session_token` e um evento fixo;
 ela encaminha o funil sem PII ao painel Consulta. Os limites de taxa em memória

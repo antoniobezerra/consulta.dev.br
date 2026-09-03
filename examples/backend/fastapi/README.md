@@ -8,6 +8,12 @@ cp .env.example .env
 uvicorn main:app --reload
 ```
 
+Para verificar os handlers e os headers encaminhados com upstream sintético:
+
+```bash
+python -m unittest
+```
+
 O exemplo oferece `/api/consulta-autofill/session`, `/decode` e a ponte
 opcional `/metrics`, com limite de corpo, origem exata, timeout e limite local.
 Use `metrics-endpoint="/api/consulta-autofill/metrics"` para acompanhar o funil
