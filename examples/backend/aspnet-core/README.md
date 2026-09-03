@@ -1,3 +1,29 @@
 # Exemplo ASP.NET Core
 
-Este exemplo entra na segunda fase, depois de o contrato v1 estar congelado.
+Ponte same-origin em Minimal API para .NET 10 LTS. A chave, o projeto e a
+origem são carregados somente pelo processo; o componente usa
+`endpoint="/api/consulta-autofill"`.
+
+```bash
+cp .env.example .env
+# Exporte as variáveis do .env pelo gerenciador de ambiente do seu projeto.
+dotnet test ConsultaAutofill.AspNetCore.sln
+dotnet run --project ConsultaAutofill.AspNetCore
+```
+
+Os endpoints são:
+
+```text
+POST /api/consulta-autofill/session
+POST /api/consulta-autofill/decode
+```
+
+O exemplo faz parsing JSON estrito com limite de 1 MiB, valida a origem HTTPS
+fixada no servidor, usa timeout/cancelamento do `HttpClient`, limita respostas
+do upstream, aplica rate limit local e não registra QR, token, foto, campos ou
+corpos. Os testes cobrem origem inválida, campo de browser não permitido e os
+headers configurados no servidor contra um `HttpMessageHandler` sintético.
+
+Conecte `RequirePartnerAccess` à autenticação/RBAC do seu produto e troque o
+rate limit em memória por armazenamento compartilhado antes de produção. Leia
+o [guia de integração](../../../docs/INTEGRATION.md).

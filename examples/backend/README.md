@@ -14,7 +14,7 @@ POST /api/consulta-autofill/decode
 | [Laravel](laravel) | Controller, config e rotas para projeto Laravel. |
 | [FastAPI](fastapi) | Aplicação Python executável. |
 | [Go](go) | Servidor `net/http` executável. |
-| [Spring Boot](spring-boot) | Segunda fase. |
-| [ASP.NET Core](aspnet-core) | Segunda fase. |
+| [Spring Boot](spring-boot) | Java 17+, Maven, controller e upstream simulado. |
+| [ASP.NET Core](aspnet-core) | .NET 10 LTS Minimal API e `HttpMessageHandler` simulado. |
 
 Os limites de taxa em memória são deliberadamente didáticos. Produção distribuída deve usar a identidade/autorização do parceiro e um armazenamento compartilhado para rate limit, sem incluir QR, token, foto ou campos nas chaves ou nos logs.

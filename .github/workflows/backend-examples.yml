@@ -1,0 +1,41 @@
+name: Backend examples
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "examples/backend/spring-boot/**"
+      - "examples/backend/aspnet-core/**"
+      - ".github/workflows/backend-examples.yml"
+  pull_request:
+    paths:
+      - "examples/backend/spring-boot/**"
+      - "examples/backend/aspnet-core/**"
+      - ".github/workflows/backend-examples.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  spring-boot:
+    name: Spring Boot example
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+          cache: maven
+          cache-dependency-path: examples/backend/spring-boot/pom.xml
+      - run: mvn --batch-mode --file examples/backend/spring-boot/pom.xml test
+
+  aspnet-core:
+    name: ASP.NET Core example
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: "10.0.x"
+      - run: dotnet test examples/backend/aspnet-core/ConsultaAutofill.AspNetCore.sln --configuration Release
