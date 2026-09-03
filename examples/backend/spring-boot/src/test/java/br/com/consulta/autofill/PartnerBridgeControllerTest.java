@@ -81,6 +81,18 @@ class PartnerBridgeControllerTest {
     verify(bridge, never()).forward(eq("/api/v1/autofill/decode"), anyMap());
   }
 
+  @Test
+  void rejectsUnknownMetricFields() throws Exception {
+    mvc.perform(post("/api/consulta-autofill/metrics")
+            .contentType(MediaType.APPLICATION_JSON)
+            .header("Origin", "https://partner.example")
+            .content("{\"protocol_version\":1,\"session_token\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"event\":\"filled\",\"fields\":{\"cpf\":\"00000000000\"}}"))
+        .andExpect(status().isBadRequest())
+        .andExpect(jsonPath("$.error.code").value("INVALID_REQUEST"));
+
+    verify(bridge, never()).forward(eq("/api/v1/autofill/metrics"), anyMap());
+  }
+
   @TestConfiguration
   @EnableConfigurationProperties(PartnerBridgeProperties.class)
   static class PropertiesConfiguration {}

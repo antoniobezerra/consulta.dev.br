@@ -44,6 +44,24 @@ class ConsultaAutofillControllerTest extends TestCase
         Http::assertNothingSent();
     }
 
+    public function test_it_rejects_a_browser_controlled_metric_field_without_contacting_the_upstream(): void
+    {
+        Http::fake();
+
+        $response = $this->withHeader('Origin', 'https://partner.example')
+            ->postJson('/api/consulta-autofill/metrics', [
+                'protocol_version' => 1,
+                'session_token' => str_repeat('a', 32),
+                'event' => 'filled',
+                'fields' => ['cpf' => '00000000000'],
+            ])
+            ->assertBadRequest()
+            ->assertJsonPath('error.code', 'INVALID_REQUEST');
+
+        $this->assertNoStore($response);
+        Http::assertNothingSent();
+    }
+
     public function test_it_forwards_only_the_server_configured_headers_and_origin(): void
     {
         Http::fake([

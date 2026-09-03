@@ -30,7 +30,10 @@ não permitida retorna à experiência `Consulta Autofill` com o crédito visív
 
 - `cdn.consulta.dev.br` entrega assets com versão e hash imutáveis.
 - `embed.consulta.dev.br` entrega o iframe com políticas por projeto.
-- O parceiro expõe endpoints same-origin de sessão e decode.
+- O parceiro expõe endpoints same-origin de sessão e decode e pode expor uma
+  ponte opt-in de métricas. Ela aceita somente um token opaco de sessão e um
+  evento de lifecycle fixo; não aceita campos, valores, QR, imagem, foto ou
+  identidade do usuário final.
 
 O [contrato de deploy do embed](EMBED_DEPLOYMENT.md) define como calcular a CSP dinâmica sem confiar em parâmetros controlados pelo navegador.
 

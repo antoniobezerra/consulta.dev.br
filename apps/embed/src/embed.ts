@@ -2,6 +2,7 @@ import {
   AUTOFILL_PROTOCOL_VERSION,
   isAutofillFrameMessage,
   type AutofillDecodedDocument,
+  type AutofillEmbedMetricEvent,
   type AutofillFrameMessage,
 } from "@consulta-dev/autofill/protocol";
 import { AnnotationMode, getDocument, GlobalWorkerOptions } from "pdfjs-dist/build/pdf.mjs";
@@ -349,13 +350,15 @@ class EmbedController {
     actions.append(this.button("Ler agora", "primary", () => void this.scanCamera(true)), this.button("Voltar", "secondary", () => this.options()));
     card.append(camera, actions); this.panel.replaceChildren(card); this.video = video;
     this.setStatus("Solicitando acesso à câmera…");
+    this.metric("camera_requested");
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: false, video: { facingMode: { ideal: "environment" }, width: { ideal: 1920 }, height: { ideal: 1080 } } });
       if (this.disposed || !this.video) return stream.getTracks().forEach((track) => track.stop());
-      this.stream = stream; this.video.srcObject = stream; await this.video.play(); this.looping = true;
+      this.stream = stream; this.video.srcObject = stream; await this.video.play(); this.looping = true; this.metric("camera_granted");
       this.setStatus("Procurando o QR Code…"); this.schedule(250);
     } catch (cause) {
       const denied = cause instanceof DOMException && (cause.name === "NotAllowedError" || cause.name === "SecurityError");
+      if (denied) this.metric("camera_denied");
       this.error(denied ? "A câmera foi bloqueada. Você pode enviar uma imagem ou PDF." : "Não foi possível iniciar a câmera.");
     }
   }
@@ -372,7 +375,7 @@ class EmbedController {
     this.scanning = true;
     try {
       const payload = await this.scanImage(this.videoImage());
-      if (payload) { this.payload = payload; this.stopCamera(); this.setStatus("QR Code encontrado."); return this.confirmPayload(); }
+      if (payload) { this.payload = payload; this.stopCamera(); this.metric("qr_found"); this.setStatus("QR Code encontrado."); return this.confirmPayload(); }
       if (manual) this.setStatus("Ainda não encontramos um QR Code. Aproxime o documento e tente novamente.");
     } catch {
       if (manual) this.setStatus("Não foi possível ler este quadro. Tente melhorar a iluminação.");
@@ -467,7 +470,7 @@ class EmbedController {
     try {
       const payload = pdf ? await this.scanPdf(file) : await this.scanImage(await this.imageDataFromFile(file));
       if (!payload) throw new Error("Não encontramos um QR Code neste arquivo.");
-      this.payload = payload; this.setStatus("QR Code encontrado."); this.confirmPayload();
+      this.payload = payload; this.metric("qr_found"); this.setStatus("QR Code encontrado."); this.confirmPayload();
     } catch (cause) {
       this.error(cause instanceof Error ? cause.message : "Não foi possível ler este arquivo.");
     }
@@ -547,6 +550,7 @@ class EmbedController {
   }
 
   private error(text: string): void {
+    this.metric("error");
     this.stopCamera(); const card = this.card("Não foi possível concluir a leitura", text); card.classList.add("error"); const actions = document.createElement("div"); actions.className = "actions";
     if (this.config) actions.append(this.button("Tentar novamente", "primary", () => this.options())); actions.append(this.button("Fechar", "secondary", () => this.cancel())); card.append(actions); this.panel.replaceChildren(card); this.setStatus(text);
   }
@@ -575,6 +579,11 @@ class EmbedController {
   private post(type: AutofillFrameMessage["type"], payload?: unknown): void {
     if (!this.port || !this.sessionId || this.disposed) return;
     this.port.postMessage({ protocol: "consulta-autofill", version: AUTOFILL_PROTOCOL_VERSION, type, project_id: this.query.projectId, session_id: this.sessionId, nonce: this.query.nonce, payload } satisfies AutofillFrameMessage);
+  }
+
+  /** The frame never sends a value, field name, QR payload or error text as telemetry. */
+  private metric(event: AutofillEmbedMetricEvent): void {
+    this.post("embed.metric", { event });
   }
 
   private cancel(): void { this.post("embed.cancel"); this.shutdown(); }

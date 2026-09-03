@@ -25,6 +25,14 @@ const decodeSchema = z.object({
   payload_base64: z.string().min(4).max(1_000_000).regex(/^[A-Za-z0-9+/]+={0,2}$/),
   include_photo: z.boolean(),
 }).strict();
+const metricSchema = z.object({
+  protocol_version: z.literal(1),
+  session_token: z.string().min(32).max(4096),
+  event: z.enum([
+    "opened", "camera_requested", "camera_granted", "camera_denied", "qr_found",
+    "decoded", "confirmed", "filled", "closed", "error",
+  ]),
+}).strict();
 
 const app = express();
 app.disable("x-powered-by");
@@ -87,11 +95,14 @@ function relay(path, schema, transform) {
 
 const sessionLimit = rateLimit({ windowMs: 60_000, limit: 20, standardHeaders: "draft-8", legacyHeaders: false });
 const decodeLimit = rateLimit({ windowMs: 60_000, limit: 60, standardHeaders: "draft-8", legacyHeaders: false });
+const metricsLimit = rateLimit({ windowMs: 60_000, limit: 180, standardHeaders: "draft-8", legacyHeaders: false });
 
 app.post("/api/consulta-autofill/session", requireSamePartnerOrigin, requirePartnerAccess, sessionLimit,
   relay("/api/v1/autofill/sessions", sessionSchema, (body) => ({ ...body, partner_origin: config.partnerOrigin })));
 app.post("/api/consulta-autofill/decode", requireSamePartnerOrigin, requirePartnerAccess, decodeLimit,
   relay("/api/v1/autofill/decode", decodeSchema, (body) => body));
+app.post("/api/consulta-autofill/metrics", requireSamePartnerOrigin, requirePartnerAccess, metricsLimit,
+  relay("/api/v1/autofill/metrics", metricSchema, (body) => body));
 
 app.use((error, _req, res, _next) => {
   void _next;

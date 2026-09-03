@@ -6,6 +6,7 @@ using System.Text.Json.Serialization;
 using System.Text.RegularExpressions;
 
 const int MaxBodyBytes = 1_000_000;
+const int MaxMetricBodyBytes = 4_096;
 
 var builder = WebApplication.CreateBuilder(args);
 var settings = PartnerSettings.From(builder.Configuration);
@@ -64,6 +65,27 @@ app.MapPost("/api/consulta-autofill/decode", async (
     return Relay(response, result);
 });
 
+app.MapPost("/api/consulta-autofill/metrics", async (
+    HttpRequest request,
+    HttpResponse response,
+    PartnerSettings options,
+    PartnerRateLimiter limiter,
+    PartnerBridgeService bridge,
+    CancellationToken cancellationToken) => {
+    var guard = Guard(request, response, options, limiter, "metrics", 180);
+    if (guard is not null) return guard;
+    var input = await ReadStrictJsonAsync<MetricInput>(request, cancellationToken, MaxMetricBodyBytes);
+    if (input is null || !ValidMetric(input)) {
+        return Error(response, "INVALID_REQUEST", "Métrica Autofill inválida.", StatusCodes.Status400BadRequest);
+    }
+    var result = await bridge.ForwardAsync("/api/v1/autofill/metrics", new {
+        protocol_version = input.ProtocolVersion,
+        session_token = input.SessionToken,
+        @event = input.Event,
+    }, cancellationToken);
+    return Relay(response, result);
+});
+
 app.Run();
 
 static IResult? Guard(HttpRequest request, HttpResponse response, PartnerSettings options, PartnerRateLimiter limiter, string scope, int limit) {
@@ -98,6 +120,11 @@ static bool ValidDecode(DecodeInput input) => input.ProtocolVersion == 1
     && input.PayloadBase64 is { Length: >= 4 and <= MaxBodyBytes }
     && Regex.IsMatch(input.PayloadBase64, "^[A-Za-z0-9+/]+={0,2}$", RegexOptions.CultureInvariant);
 
+static bool ValidMetric(MetricInput input) => input.ProtocolVersion == 1
+    && input.SessionToken is { Length: >= 32 and <= 4096 }
+    && input.Event is "opened" or "camera_requested" or "camera_granted" or "camera_denied" or "qr_found"
+        or "decoded" or "confirmed" or "filled" or "closed" or "error";
+
 static IResult Relay(HttpResponse response, ForwardedResponse result) {
     if (result.Body is null) return Error(response, "UPSTREAM_UNAVAILABLE", "Serviço temporariamente indisponível.", StatusCodes.Status503ServiceUnavailable);
     response.Headers.CacheControl = "no-store";
@@ -109,14 +136,14 @@ static IResult Error(HttpResponse response, string code, string message, int sta
     return Results.Json(new ErrorEnvelope(false, new ErrorBody(code, message, statusCode >= 500), "partner_local"), JsonContract.Options, statusCode: statusCode);
 }
 
-static async Task<T?> ReadStrictJsonAsync<T>(HttpRequest request, CancellationToken cancellationToken) where T : class {
+static async Task<T?> ReadStrictJsonAsync<T>(HttpRequest request, CancellationToken cancellationToken, int maxBodyBytes = MaxBodyBytes) where T : class {
     if (!request.HasJsonContentType()) return null;
     await using var output = new MemoryStream();
     var buffer = new byte[8192];
     try {
         int read;
         while ((read = await request.Body.ReadAsync(buffer.AsMemory(0, buffer.Length), cancellationToken)) != 0) {
-            if (output.Length + read > MaxBodyBytes) return null;
+            if (output.Length + read > maxBodyBytes) return null;
             await output.WriteAsync(buffer.AsMemory(0, read), cancellationToken);
         }
         var bytes = output.ToArray();
@@ -141,6 +168,11 @@ public sealed record DecodeInput(
     [property: JsonPropertyName("session_token")] string? SessionToken,
     [property: JsonPropertyName("payload_base64")] string? PayloadBase64,
     [property: JsonPropertyName("include_photo")] bool? IncludePhoto);
+
+public sealed record MetricInput(
+    [property: JsonPropertyName("protocol_version")] int ProtocolVersion,
+    [property: JsonPropertyName("session_token")] string? SessionToken,
+    [property: JsonPropertyName("event")] string? Event);
 
 public sealed record ErrorBody(string Code, string Message, bool Retryable);
 public sealed record ErrorEnvelope(bool Success, ErrorBody Error, string RequestId);

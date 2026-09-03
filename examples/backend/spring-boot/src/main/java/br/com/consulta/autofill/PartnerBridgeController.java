@@ -20,6 +20,7 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/api/consulta-autofill")
 class PartnerBridgeController {
   private static final int MAX_BODY_BYTES = 1_000_000;
+  private static final int MAX_METRIC_BODY_BYTES = 4_096;
   private static final Pattern BASE64 = Pattern.compile("^[A-Za-z0-9+/]+={0,2}$");
   private final ObjectMapper strictObjectMapper;
   private final PartnerBridgeProperties properties;
@@ -76,6 +77,28 @@ class PartnerBridgeController {
     }
   }
 
+  @PostMapping(value = "/metrics", consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
+  ResponseEntity<?> metrics(
+      @RequestBody byte[] body,
+      @RequestHeader(value = "Origin", required = false) String origin,
+      HttpServletRequest request) {
+    try {
+      ResponseEntity<?> guard = guard(origin, request, "metrics", 180, body);
+      if (guard != null) return guard;
+      if (body.length > MAX_METRIC_BODY_BYTES) return invalid("Métrica Autofill inválida.");
+      MetricInput input = strictObjectMapper.readValue(body, MetricInput.class);
+      if (!validMetric(input)) return invalid("Métrica Autofill inválida.");
+      return relay(bridge.forward("/api/v1/autofill/metrics", Map.of(
+          "protocol_version", input.protocolVersion(),
+          "session_token", input.sessionToken(),
+          "event", input.event())));
+    } catch (Exception exception) {
+      return invalid("Métrica Autofill inválida.");
+    } finally {
+      java.util.Arrays.fill(body, (byte) 0);
+    }
+  }
+
   private ResponseEntity<?> guard(String origin, HttpServletRequest request, String scope, int limit, byte[] body) {
     if (body.length > MAX_BODY_BYTES) return error("INVALID_REQUEST", "A requisição Autofill é inválida.", 400);
     if (origin != null && !origin.equals(properties.getPartnerOrigin())) return error("INVALID_ORIGIN", "Origem não autorizada.", 403);
@@ -102,6 +125,16 @@ class PartnerBridgeController {
         && input.payloadBase64().length() <= MAX_BODY_BYTES && BASE64.matcher(input.payloadBase64()).matches();
   }
 
+  private static boolean validMetric(MetricInput input) {
+    if (input.protocolVersion() != 1 || input.sessionToken() == null || input.sessionToken().length() < 32 || input.sessionToken().length() > 4096) {
+      return false;
+    }
+    return switch (input.event()) {
+      case "opened", "camera_requested", "camera_granted", "camera_denied", "qr_found", "decoded", "confirmed", "filled", "closed", "error" -> true;
+      default -> false;
+    };
+  }
+
   private static ResponseEntity<?> relay(PartnerBridgeService.BridgeResponse response) {
     if (response.body() == null) return error("UPSTREAM_UNAVAILABLE", "Serviço temporariamente indisponível.", 503);
     return ResponseEntity.status(response.status()).cacheControl(CacheControl.noStore()).body(response.body());
@@ -122,4 +155,8 @@ class PartnerBridgeController {
       @JsonProperty("session_token") String sessionToken,
       @JsonProperty("payload_base64") String payloadBase64,
       @JsonProperty("include_photo") Boolean includePhoto) {}
+  record MetricInput(
+      @JsonProperty("protocol_version") int protocolVersion,
+      @JsonProperty("session_token") String sessionToken,
+      @JsonProperty("event") String event) {}
 }

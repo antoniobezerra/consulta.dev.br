@@ -2,7 +2,8 @@
 
 Ponte same-origin para Spring Boot 3.5 e Java 17+. A API key, projeto e origem
 ficam exclusivamente no processo Java; o browser usa somente
-`endpoint="/api/consulta-autofill"`.
+`endpoint="/api/consulta-autofill"` e, para o funil sem PII,
+`metrics-endpoint="/api/consulta-autofill/metrics"`.
 
 ```bash
 cp .env.example .env
@@ -16,6 +17,7 @@ O exemplo expõe:
 ```text
 POST /api/consulta-autofill/session
 POST /api/consulta-autofill/decode
+POST /api/consulta-autofill/metrics
 ```
 
 Ele limita JSON a 1 MiB, valida a origem HTTPS exata configurada no servidor,

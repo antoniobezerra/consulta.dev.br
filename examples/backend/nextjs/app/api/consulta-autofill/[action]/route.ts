@@ -1,6 +1,7 @@
 export const runtime = "nodejs";
 
 const MAX_BODY_BYTES = 1_000_000;
+const MAX_METRIC_BODY_BYTES = 4_096;
 
 function config() {
   const apiBaseUrl = (process.env.CONSULTA_API_BASE_URL || "https://consulta.dev.br").replace(/\/$/, "");
@@ -32,11 +33,19 @@ function validDecodeBody(value: unknown): value is { protocol_version: 1; sessio
     typeof body.include_photo === "boolean" && Object.keys(body).length === 4;
 }
 
-async function requestJson(request: Request): Promise<unknown> {
+function validMetricBody(value: unknown): value is { protocol_version: 1; session_token: string; event: string } {
+  if (!value || typeof value !== "object") return false;
+  const body = value as Record<string, unknown>;
+  return body.protocol_version === 1 && typeof body.session_token === "string" && body.session_token.length >= 32 && body.session_token.length <= 4096 &&
+    typeof body.event === "string" && ["opened", "camera_requested", "camera_granted", "camera_denied", "qr_found", "decoded", "confirmed", "filled", "closed", "error"].includes(body.event) &&
+    Object.keys(body).length === 3;
+}
+
+async function requestJson(request: Request, maxBytes = MAX_BODY_BYTES): Promise<unknown> {
   const length = Number(request.headers.get("content-length") || 0);
-  if (!Number.isFinite(length) || length > MAX_BODY_BYTES) throw new Error("PAYLOAD_TOO_LARGE");
+  if (!Number.isFinite(length) || length > maxBytes) throw new Error("PAYLOAD_TOO_LARGE");
   const text = await request.text();
-  if (text.length > MAX_BODY_BYTES) throw new Error("PAYLOAD_TOO_LARGE");
+  if (text.length > maxBytes) throw new Error("PAYLOAD_TOO_LARGE");
   return JSON.parse(text) as unknown;
 }
 
@@ -70,16 +79,22 @@ export async function POST(request: Request, context: { params: Promise<{ action
   // Nunca use project_id vindo do browser; o projeto é fixado nas variáveis de servidor.
   const { action } = await context.params;
   try {
-    const body = await requestJson(request);
     let endpoint: string;
     let upstreamBody: unknown;
     if (action === "session") {
+      const body = await requestJson(request);
       if (!validSessionBody(body)) return error("INVALID_REQUEST", "Sessão Autofill inválida.");
       endpoint = "/api/v1/autofill/sessions";
       upstreamBody = { ...body, partner_origin: settings.partnerOrigin };
     } else if (action === "decode") {
+      const body = await requestJson(request);
       if (!validDecodeBody(body)) return error("INVALID_REQUEST", "Decode Autofill inválido.");
       endpoint = "/api/v1/autofill/decode";
+      upstreamBody = body;
+    } else if (action === "metrics") {
+      const body = await requestJson(request, MAX_METRIC_BODY_BYTES);
+      if (!validMetricBody(body)) return error("INVALID_REQUEST", "Métrica Autofill inválida.");
+      endpoint = "/api/v1/autofill/metrics";
       upstreamBody = body;
     } else {
       return error("INVALID_REQUEST", "Ação Autofill não suportada.", 404);

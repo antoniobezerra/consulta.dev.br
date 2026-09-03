@@ -2,7 +2,8 @@
 
 Ponte same-origin executável para Laravel 12 e PHP 8.2+. A chave, o projeto e
 a origem ficam exclusivamente no processo PHP; o componente usa
-`endpoint="/api/consulta-autofill"`.
+`endpoint="/api/consulta-autofill"` e pode usar
+`metrics-endpoint="/api/consulta-autofill/metrics"` para o funil sem PII.
 
 No projeto parceiro, copie as variáveis de `.env.example` para o gerenciador
 de segredos do servidor. Para executar este fixture isolado, use:
@@ -12,7 +13,7 @@ composer update
 composer test
 ```
 
-Copie `config/consulta-autofill.php`, o controller e as duas rotas para o seu
+Copie `config/consulta-autofill.php`, o controller e as três rotas para o seu
 projeto Laravel. As rotas de produção usam `auth` e `throttle`; conecte `auth`
 à autenticação/RBAC do seu produto e use rate limit compartilhado antes de
 executar múltiplas instâncias.

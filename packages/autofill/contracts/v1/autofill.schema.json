@@ -43,6 +43,21 @@
       "type": "string",
       "enum": ["cnh-e", "crlv-e"]
     },
+    "metricEvent": {
+      "type": "string",
+      "enum": [
+        "opened",
+        "camera_requested",
+        "camera_granted",
+        "camera_denied",
+        "qr_found",
+        "decoded",
+        "confirmed",
+        "filled",
+        "closed",
+        "error"
+      ]
+    },
     "branding": {
       "oneOf": [
         {
@@ -164,6 +179,31 @@
         "request_id": { "$ref": "#/$defs/requestId" }
       }
     },
+    "metricRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["protocol_version", "session_token", "event"],
+      "properties": {
+        "protocol_version": { "$ref": "#/$defs/protocolVersion" },
+        "session_token": { "$ref": "#/$defs/sessionToken" },
+        "event": { "$ref": "#/$defs/metricEvent" }
+      }
+    },
+    "metricSuccessResponse": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["success", "data", "request_id"],
+      "properties": {
+        "success": { "const": true },
+        "data": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["accepted"],
+          "properties": { "accepted": { "const": true } }
+        },
+        "request_id": { "$ref": "#/$defs/requestId" }
+      }
+    },
     "embedBootstrap": {
       "type": "object",
       "additionalProperties": false,
@@ -275,7 +315,8 @@
             "parent.error",
             "parent.close",
             "embed.cancel",
-            "embed.confirm"
+            "embed.confirm",
+            "embed.metric"
           ]
         },
         "project_id": { "$ref": "#/$defs/projectId" },

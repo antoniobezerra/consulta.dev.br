@@ -48,6 +48,25 @@ public sealed class BridgeEndpointTests : IClassFixture<BridgeFactory> {
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
         Assert.Equal("INVALID_REQUEST", body.GetProperty("error").GetProperty("code").GetString());
     }
+
+    [Fact]
+    public async Task Rejects_a_browser_controlled_metric_field() {
+        using var request = new HttpRequestMessage(HttpMethod.Post, "/api/consulta-autofill/metrics") {
+            Content = JsonContent.Create(new {
+                protocol_version = 1,
+                session_token = new string('a', 32),
+                @event = "filled",
+                fields = new { cpf = "00000000000" },
+            }),
+        };
+        request.Headers.Add("Origin", "https://partner.example");
+
+        using var response = await _client.SendAsync(request);
+        var body = await response.Content.ReadFromJsonAsync<JsonElement>();
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Equal("INVALID_REQUEST", body.GetProperty("error").GetProperty("code").GetString());
+    }
 }
 
 public sealed class BridgeFactory : WebApplicationFactory<Program> {

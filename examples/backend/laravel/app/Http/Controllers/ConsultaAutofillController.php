@@ -49,6 +49,24 @@ class ConsultaAutofillController extends Controller
         return $this->forward('/api/v1/autofill/decode', $input);
     }
 
+    public function metrics(Request $request): JsonResponse
+    {
+        if ($response = $this->assertOrigin($request)) {
+            return $response;
+        }
+
+        if ($response = $this->assertOnly($request, ['protocol_version', 'session_token', 'event'])) {
+            return $response;
+        }
+        $input = $request->validate([
+            'protocol_version' => ['required', 'integer', 'in:1'],
+            'session_token' => ['required', 'string', 'min:32', 'max:4096'],
+            'event' => ['required', 'string', 'in:opened,camera_requested,camera_granted,camera_denied,qr_found,decoded,confirmed,filled,closed,error'],
+        ]);
+
+        return $this->forward('/api/v1/autofill/metrics', $input);
+    }
+
     private function assertOrigin(Request $request): ?JsonResponse
     {
         $origin = $request->header('Origin');

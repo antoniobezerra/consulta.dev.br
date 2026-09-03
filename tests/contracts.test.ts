@@ -60,6 +60,33 @@ describe("Autofill v1 JSON Schema", () => {
     ).toBe(true);
   });
 
+  it("accepts only fixed, PII-free lifecycle metric events", () => {
+    const validateRequest = validator("metricRequest");
+    const validateResponse = validator("metricSuccessResponse");
+
+    expect(validateRequest({
+      protocol_version: 1,
+      session_token: "a".repeat(32),
+      event: "filled",
+    })).toBe(true);
+    expect(validateResponse({
+      success: true,
+      data: { accepted: true },
+      request_id: "req_12345678",
+    })).toBe(true);
+    expect(validateRequest({
+      protocol_version: 1,
+      session_token: "a".repeat(32),
+      event: "filled",
+      fields: { cpf: "00000000000" },
+    })).toBe(false);
+    expect(validateRequest({
+      protocol_version: 1,
+      session_token: "a".repeat(32),
+      event: "unknown",
+    })).toBe(false);
+  });
+
   it("keeps iframe branding server-owned and plan-safe", () => {
     const validate = validator("embedBootstrapSuccessResponse");
     const response = {

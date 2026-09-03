@@ -17,6 +17,7 @@ import (
 )
 
 const maxBodyBytes = 1_000_000
+const maxMetricBodyBytes = 4_096
 
 var payloadPattern = regexp.MustCompile(`^[A-Za-z0-9+/]+={0,2}$`)
 
@@ -37,6 +38,12 @@ type decodeRequest struct {
 	SessionToken    string `json:"session_token"`
 	PayloadBase64   string `json:"payload_base64"`
 	IncludePhoto    *bool  `json:"include_photo"`
+}
+
+type metricRequest struct {
+	ProtocolVersion int    `json:"protocol_version"`
+	SessionToken    string `json:"session_token"`
+	Event           string `json:"event"`
 }
 
 type rateLimiter struct {
@@ -70,6 +77,7 @@ func main() {
 	mux := http.NewServeMux()
 	mux.HandleFunc("POST /api/consulta-autofill/session", partnerHandler(settings, limiter, "session"))
 	mux.HandleFunc("POST /api/consulta-autofill/decode", partnerHandler(settings, limiter, "decode"))
+	mux.HandleFunc("POST /api/consulta-autofill/metrics", partnerHandler(settings, limiter, "metrics"))
 
 	port := os.Getenv("PORT")
 	if port == "" {
@@ -118,7 +126,7 @@ func partnerHandler(settings config, limiter *rateLimiter, action string) http.H
 			return
 		}
 		ip, _, _ := net.SplitHostPort(request.RemoteAddr)
-		if !limiter.allow(action+":"+ip, map[string]int{"session": 20, "decode": 60}[action]) {
+		if !limiter.allow(action+":"+ip, map[string]int{"session": 20, "decode": 60, "metrics": 180}[action]) {
 			writeError(writer, "RATE_LIMITED", "Muitas solicitações; tente novamente em breve.", http.StatusTooManyRequests)
 			return
 		}
@@ -127,20 +135,28 @@ func partnerHandler(settings config, limiter *rateLimiter, action string) http.H
 		var path string
 		if action == "session" {
 			var input sessionRequest
-			if !decodeStrictJSON(writer, request, &input) || !validSession(input) {
+			if !decodeStrictJSON(writer, request, &input, maxBodyBytes) || !validSession(input) {
 				writeError(writer, "INVALID_REQUEST", "Sessão Autofill inválida.", http.StatusBadRequest)
 				return
 			}
 			body = map[string]any{"protocol_version": input.ProtocolVersion, "document_type": input.DocumentType, "partner_origin": settings.partnerOrigin}
 			path = "/api/v1/autofill/sessions"
-		} else {
+		} else if action == "decode" {
 			var input decodeRequest
-			if !decodeStrictJSON(writer, request, &input) || !validDecode(input) {
+			if !decodeStrictJSON(writer, request, &input, maxBodyBytes) || !validDecode(input) {
 				writeError(writer, "INVALID_REQUEST", "Decode Autofill inválido.", http.StatusBadRequest)
 				return
 			}
 			body = input
 			path = "/api/v1/autofill/decode"
+		} else {
+			var input metricRequest
+			if !decodeStrictJSON(writer, request, &input, maxMetricBodyBytes) || !validMetric(input) {
+				writeError(writer, "INVALID_REQUEST", "Métrica Autofill inválida.", http.StatusBadRequest)
+				return
+			}
+			body = input
+			path = "/api/v1/autofill/metrics"
 		}
 		forward(writer, request.Context(), settings, path, body)
 	}
@@ -151,8 +167,8 @@ func requirePartnerAccess(_ *http.Request) bool {
 	return true
 }
 
-func decodeStrictJSON(writer http.ResponseWriter, request *http.Request, target any) bool {
-	request.Body = http.MaxBytesReader(writer, request.Body, maxBodyBytes)
+func decodeStrictJSON(writer http.ResponseWriter, request *http.Request, target any, maxBytes int64) bool {
+	request.Body = http.MaxBytesReader(writer, request.Body, maxBytes)
 	decoder := json.NewDecoder(request.Body)
 	decoder.DisallowUnknownFields()
 	if err := decoder.Decode(target); err != nil {
@@ -167,6 +183,17 @@ func validSession(input sessionRequest) bool {
 
 func validDecode(input decodeRequest) bool {
 	return input.ProtocolVersion == 1 && input.IncludePhoto != nil && len(input.SessionToken) >= 32 && len(input.SessionToken) <= 4096 && len(input.PayloadBase64) >= 4 && len(input.PayloadBase64) <= maxBodyBytes && payloadPattern.MatchString(input.PayloadBase64)
+}
+
+func validMetric(input metricRequest) bool {
+	if input.ProtocolVersion != 1 || len(input.SessionToken) < 32 || len(input.SessionToken) > 4096 {
+		return false
+	}
+	_, valid := map[string]struct{}{
+		"opened": {}, "camera_requested": {}, "camera_granted": {}, "camera_denied": {}, "qr_found": {},
+		"decoded": {}, "confirmed": {}, "filled": {}, "closed": {}, "error": {},
+	}[input.Event]
+	return valid
 }
 
 func forward(writer http.ResponseWriter, parent context.Context, settings config, path string, body any) {

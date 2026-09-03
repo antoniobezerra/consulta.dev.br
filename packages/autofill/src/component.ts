@@ -1,4 +1,5 @@
 import {
+  AUTOFILL_EMBED_METRIC_EVENTS,
   AUTOFILL_PROTOCOL_VERSION,
   isAutofillEmbedReadyMessage,
   isAutofillFrameMessage,
@@ -8,13 +9,16 @@ import type {
   AutofillDecodeResponse,
   AutofillDecodedDocument,
   AutofillDocumentType,
+  AutofillEmbedMetricEvent,
   AutofillFrameMessage,
+  AutofillMetricEvent,
   AutofillSession,
   AutofillSessionResponse,
 } from "./protocol.js";
 
 const ELEMENT_NAME = "consulta-autofill";
 const DOCUMENT_TYPES = new Set<AutofillDocumentType>(["auto", "cnh-e", "crlv-e"]);
+const EMBED_METRIC_EVENTS = new Set<AutofillEmbedMetricEvent>(AUTOFILL_EMBED_METRIC_EVENTS);
 // Keeps the package importable from SSR/build tooling. Instances are only
 // constructed by the browser's Custom Elements registry.
 const HTMLElementBase: typeof HTMLElement =
@@ -59,6 +63,18 @@ function randomNonce(): string {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+}
+
+function isEmbedMetricMessage(
+  message: AutofillFrameMessage,
+): message is AutofillFrameMessage<{ event: AutofillEmbedMetricEvent }> & { payload: { event: AutofillEmbedMetricEvent } } {
+  const payload = message.payload;
+  return (
+    isRecord(payload) &&
+    Object.keys(payload).length === 1 &&
+    typeof payload.event === "string" &&
+    EMBED_METRIC_EVENTS.has(payload.event as AutofillEmbedMetricEvent)
+  );
 }
 
 function isSessionResponse(value: unknown): value is AutofillSessionResponse {
@@ -148,6 +164,8 @@ export class ConsultaAutofillElement extends HTMLElementBase {
   private requestAbort: AbortController | null = null;
   private trigger: HTMLButtonElement | null = null;
   private previousFocus: HTMLElement | null = null;
+  private readonly reportedMetrics = new Set<AutofillMetricEvent>();
+  private metricsOpened = false;
 
   connectedCallback(): void {
     this.render();
@@ -170,9 +188,13 @@ export class ConsultaAutofillElement extends HTMLElementBase {
     try {
       const session = await this.createPartnerSession(this.requestAbort.signal);
       this.session = session;
+      this.reportedMetrics.clear();
+      this.metricsOpened = false;
       this.handshakeNonce = randomNonce();
       this.openEmbed(session);
+      this.metricsOpened = true;
       this.emit("consulta:opened", { project_id: session.project_id, session_id: session.session_id });
+      this.reportMetric("opened");
     } catch (error) {
       this.close();
       this.emitError(error instanceof Error ? error.message : "Não foi possível abrir o Consulta Autofill.");
@@ -184,6 +206,8 @@ export class ConsultaAutofillElement extends HTMLElementBase {
 
   /** Closes the dialog and drops all in-memory session references. */
   close(): void {
+    if (this.metricsOpened) this.reportMetric("closed");
+    this.metricsOpened = false;
     this.requestAbort?.abort();
     this.requestAbort = null;
     this.messagePort?.close();
@@ -365,6 +389,10 @@ export class ConsultaAutofillElement extends HTMLElementBase {
         void this.decodePayload(message);
         return;
       }
+      if (message.type === "embed.metric") {
+        if (isEmbedMetricMessage(message)) this.reportMetric(message.payload.event);
+        return;
+      }
       if (message.type === "embed.confirm") {
         this.confirmFields(message);
         return;
@@ -400,6 +428,7 @@ export class ConsultaAutofillElement extends HTMLElementBase {
       const body: unknown = await response.json().catch(() => null);
       if (!isDecodeResponse(body)) throw new Error("O endpoint de decode retornou uma resposta incompatível.");
       if (!response.ok || !body.success) throw new Error(responseMessage(body, "Não foi possível decodificar o documento."));
+      this.reportMetric("decoded");
       this.emit("consulta:decoded", {
         document_type: body.data.document.type,
         field_keys: Object.keys(body.data.fields),
@@ -426,7 +455,9 @@ export class ConsultaAutofillElement extends HTMLElementBase {
       ? message.payload.document
       : { type: "cnh-e", label: "Documento" };
     const detail = this.fillFields(fields, result);
+    this.reportMetric("confirmed");
     this.emit("consulta:confirmed", { document: result, field_keys: Object.keys(fields) });
+    this.reportMetric("filled");
     this.emit("consulta:filled", detail);
     this.close();
   }
@@ -497,6 +528,7 @@ export class ConsultaAutofillElement extends HTMLElementBase {
   }
 
   private postError(message: string): void {
+    this.reportMetric("error");
     this.emitError(message);
     this.post("parent.error", { message });
   }
@@ -517,6 +549,50 @@ export class ConsultaAutofillElement extends HTMLElementBase {
       throw new Error("O endpoint do Consulta Autofill deve usar a mesma origem da página parceira.");
     }
     return new URL(path, `${base.toString().replace(/\/$/, "")}/`).toString();
+  }
+
+  /**
+   * Optional endpoint owned by the partner. Invalid configuration fails closed
+   * for analytics only: scanning and form filling remain available.
+   */
+  private metricsEndpoint(): string | null {
+    const value = this.getAttribute("metrics-endpoint")?.trim();
+    if (!value) return null;
+    try {
+      const endpoint = new URL(value, window.location.href);
+      if (
+        endpoint.origin !== window.location.origin ||
+        endpoint.username ||
+        endpoint.password ||
+        endpoint.search ||
+        endpoint.hash
+      ) {
+        return null;
+      }
+      return endpoint.toString();
+    } catch {
+      return null;
+    }
+  }
+
+  /** Sends a fixed lifecycle label only. It is intentionally best-effort. */
+  private reportMetric(event: AutofillMetricEvent): void {
+    const endpoint = this.metricsEndpoint();
+    const sessionToken = this.session?.session_token;
+    if (!endpoint || !sessionToken || this.reportedMetrics.has(event)) return;
+    this.reportedMetrics.add(event);
+    void fetch(endpoint, {
+      method: "POST",
+      credentials: "same-origin",
+      keepalive: true,
+      referrerPolicy: "no-referrer",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        protocol_version: AUTOFILL_PROTOCOL_VERSION,
+        session_token: sessionToken,
+        event,
+      }),
+    }).catch(() => undefined);
   }
 
   private requiredProjectId(): string {

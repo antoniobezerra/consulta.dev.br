@@ -4,9 +4,35 @@ export const AUTOFILL_PROTOCOL_VERSION = 1 as const;
 export const AUTOFILL_DOCUMENT_TYPES = ["auto", "cnh-e", "crlv-e"] as const;
 export const AUTOFILL_DECODED_DOCUMENT_TYPES = ["cnh-e", "crlv-e"] as const;
 export const AUTOFILL_BRANDING_MODES = ["consulta", "partner"] as const;
+/**
+ * Fixed, privacy-safe lifecycle events. Values, field names, document data,
+ * camera frames and browser identifiers are intentionally excluded.
+ */
+export const AUTOFILL_METRIC_EVENTS = [
+  "opened",
+  "camera_requested",
+  "camera_granted",
+  "camera_denied",
+  "qr_found",
+  "decoded",
+  "confirmed",
+  "filled",
+  "closed",
+  "error",
+] as const;
+/** Events that can only originate in the hosted iframe over its validated MessagePort. */
+export const AUTOFILL_EMBED_METRIC_EVENTS = [
+  "camera_requested",
+  "camera_granted",
+  "camera_denied",
+  "qr_found",
+  "error",
+] as const;
 export type AutofillDocumentType = (typeof AUTOFILL_DOCUMENT_TYPES)[number];
 export type AutofillDecodedDocumentType = (typeof AUTOFILL_DECODED_DOCUMENT_TYPES)[number];
 export type AutofillBrandingMode = (typeof AUTOFILL_BRANDING_MODES)[number];
+export type AutofillMetricEvent = (typeof AUTOFILL_METRIC_EVENTS)[number];
+export type AutofillEmbedMetricEvent = (typeof AUTOFILL_EMBED_METRIC_EVENTS)[number];
 
 export const AUTOFILL_ERROR_CODES = [
   "INVALID_REQUEST",
@@ -74,6 +100,25 @@ export interface AutofillSessionSuccessResponse {
 
 export type AutofillSessionResponse = AutofillSessionSuccessResponse | AutofillErrorResponse;
 
+/**
+ * Best-effort event sent to the partner's optional same-origin metrics bridge.
+ * The partner server adds credentials and the project binding before it reaches
+ * Consulta. Do not add fields, document type, image, QR, error text or IDs.
+ */
+export interface AutofillMetricRequest {
+  protocol_version: typeof AUTOFILL_PROTOCOL_VERSION;
+  session_token: string;
+  event: AutofillMetricEvent;
+}
+
+export interface AutofillMetricSuccessResponse {
+  success: true;
+  data: { accepted: true };
+  request_id: string;
+}
+
+export type AutofillMetricResponse = AutofillMetricSuccessResponse | AutofillErrorResponse;
+
 /** Display-only branding returned by the authenticated iframe bootstrap. */
 export interface AutofillEmbedBranding {
   mode: AutofillBrandingMode;
@@ -135,6 +180,7 @@ export const AUTOFILL_FRAME_MESSAGE_TYPES = [
   "parent.close",
   "embed.cancel",
   "embed.confirm",
+  "embed.metric",
 ] as const;
 export type AutofillFrameMessageType = (typeof AUTOFILL_FRAME_MESSAGE_TYPES)[number];
 

@@ -14,6 +14,7 @@ from pydantic import BaseModel, ConfigDict, ValidationError, field_validator
 
 load_dotenv()
 MAX_BODY_BYTES = 1_000_000
+MAX_METRIC_BODY_BYTES = 4_096
 
 API_BASE_URL = os.getenv("CONSULTA_API_BASE_URL", "https://consulta.dev.br").rstrip("/")
 API_KEY = os.getenv("CONSULTA_API_KEY", "")
@@ -56,6 +57,21 @@ class DecodePayload(StrictModel):
         return value
 
 
+class MetricPayload(StrictModel):
+    protocol_version: Literal[1]
+    session_token: str
+    event: Literal[
+        "opened", "camera_requested", "camera_granted", "camera_denied", "qr_found",
+        "decoded", "confirmed", "filled", "closed", "error",
+    ]
+
+    @field_validator("session_token")
+    @classmethod
+    def valid_token(cls, value: str) -> str:
+        if not 32 <= len(value) <= 4096:
+            raise ValueError("invalid token")
+        return value
+
 def error(code: str, message: str, status: int = 400) -> JSONResponse:
     return JSONResponse(
         {"success": False, "error": {"code": code, "message": message, "retryable": status >= 500}, "request_id": "partner_local"},
@@ -82,12 +98,12 @@ def local_rate_limit(request: Request, scope: str, limit: int) -> bool:
     return True
 
 
-async def read_payload(request: Request, model: type[StrictModel]) -> StrictModel | None:
+async def read_payload(request: Request, model: type[StrictModel], max_bytes: int = MAX_BODY_BYTES) -> StrictModel | None:
     length = request.headers.get("content-length")
-    if length and (not length.isdigit() or int(length) > MAX_BODY_BYTES):
+    if length and (not length.isdigit() or int(length) > max_bytes):
         return None
     body = await request.body()
-    if len(body) > MAX_BODY_BYTES:
+    if len(body) > max_bytes:
         return None
     try:
         return model.model_validate_json(body)
@@ -149,3 +165,17 @@ async def decode(request: Request) -> JSONResponse:
     if not payload:
         return error("INVALID_REQUEST", "Decode Autofill inválido.")
     return await forward("/api/v1/autofill/decode", payload.model_dump())
+
+
+@app.post("/api/consulta-autofill/metrics")
+async def metrics(request: Request) -> JSONResponse:
+    if not allowed_origin(request):
+        return error("INVALID_ORIGIN", "Origem não autorizada.", 403)
+    if not await require_partner_access(request):
+        return error("UNAUTHENTICATED", "Não autorizado.", 401)
+    if not local_rate_limit(request, "metrics", 180):
+        return error("RATE_LIMITED", "Muitas métricas; tente novamente em breve.", 429)
+    payload = await read_payload(request, MetricPayload, MAX_METRIC_BODY_BYTES)
+    if not payload:
+        return error("INVALID_REQUEST", "Métrica Autofill inválida.")
+    return await forward("/api/v1/autofill/metrics", payload.model_dump())

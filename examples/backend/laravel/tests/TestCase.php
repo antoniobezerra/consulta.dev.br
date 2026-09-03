@@ -25,5 +25,6 @@ abstract class TestCase extends Orchestra
         // middleware. This fixture focuses on the bridge controller contract.
         $router->post('/api/consulta-autofill/session', [ConsultaAutofillController::class, 'session']);
         $router->post('/api/consulta-autofill/decode', [ConsultaAutofillController::class, 'decode']);
+        $router->post('/api/consulta-autofill/metrics', [ConsultaAutofillController::class, 'metrics']);
     }
 }

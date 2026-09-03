@@ -45,6 +45,14 @@ test("places an accessible camera trigger in a native field and fills through th
       }),
     });
   });
+  const metricBodies: unknown[] = [];
+  await page.route("**/api/consulta-autofill/metrics", async (route) => {
+    metricBodies.push(route.request().postDataJSON());
+    await route.fulfill({
+      contentType: "application/json",
+      body: JSON.stringify({ success: true, data: { accepted: true }, request_id: "req_metric_12345678" }),
+    });
+  });
 
   await page.goto(`${origin}/`);
   await page.evaluate(async ({ componentUrl, label, evaluatedProjectId }) => {
@@ -76,6 +84,7 @@ test("places an accessible camera trigger in a native field and fills through th
     const field = document.createElement("consulta-autofill-field");
     field.setAttribute("project-id", evaluatedProjectId);
     field.setAttribute("endpoint", "/api/consulta-autofill");
+    field.setAttribute("metrics-endpoint", "/api/consulta-autofill/metrics");
     field.setAttribute("document-type", "cnh-e");
     field.setAttribute("label", label);
     const input = document.createElement("input");
@@ -142,6 +151,17 @@ test("places an accessible camera trigger in a native field and fills through th
   })).toEqual({ document: ["full_name"], field: ["full_name"] });
   await expect(input).toHaveValue("Pessoa Sintética");
   await expect(iframe).toHaveCount(0);
+  await expect.poll(() => metricBodies.map((body) => (body as { event?: string }).event).sort()).toEqual([
+    "closed",
+    "confirmed",
+    "filled",
+    "opened",
+  ]);
+  const serializedMetrics = JSON.stringify(metricBodies);
+  expect(serializedMetrics).not.toContain("Pessoa Sintética");
+  expect(serializedMetrics).not.toContain("full_name");
+  expect(serializedMetrics).not.toContain("payload_base64");
+  expect(serializedMetrics).not.toContain("project_id");
 
   await page.evaluate(() => {
     const state = window as Window & { __consultaNativeMessageChannel?: typeof MessageChannel };

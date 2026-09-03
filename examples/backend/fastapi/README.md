@@ -8,6 +8,11 @@ cp .env.example .env
 uvicorn main:app --reload
 ```
 
-O exemplo oferece `/api/consulta-autofill/session` e `/decode`, com limite de corpo, origem exata, timeout e limite local. Troque `require_partner_access` pela autenticação/autorização do seu produto e o rate limiter em memória por Redis antes de múltiplos processos/instâncias.
+O exemplo oferece `/api/consulta-autofill/session`, `/decode` e a ponte
+opcional `/metrics`, com limite de corpo, origem exata, timeout e limite local.
+Use `metrics-endpoint="/api/consulta-autofill/metrics"` para acompanhar o funil
+sem PII. Troque `require_partner_access` pela autenticação/autorização do seu
+produto e o rate limiter em memória por Redis antes de múltiplos
+processos/instâncias.
 
 Nenhum corpo sensível é escrito em logs. Leia [docs/INTEGRATION.md](../../../docs/INTEGRATION.md).

@@ -17,11 +17,13 @@ CONSULTA_PARTNER_ORIGIN=https://cadastro.exemplo.com.br
 
 `CONSULTA_PARTNER_ORIGIN` deve ser a origem HTTPS exata cadastrada no projeto Autofill. Não receba esse valor no corpo do browser e não aceite wildcard.
 
-Seu servidor expõe dois endpoints same-origin:
+Seu servidor expõe dois endpoints same-origin obrigatórios e, se quiser o
+funil completo no painel Consulta, uma ponte opcional de métricas:
 
 ```text
 POST /api/consulta-autofill/session
 POST /api/consulta-autofill/decode
+POST /api/consulta-autofill/metrics  # opcional, recomendado
 ```
 
 Cada exemplo em [`examples/backend`](../examples/backend) implementa essa ponte para uma stack específica.
@@ -48,6 +50,7 @@ Quando o pacote estiver publicado, carregue uma versão exata pelo npm ou pelo C
   <consulta-autofill-field
     project-id="pub_..."
     endpoint="/api/consulta-autofill"
+    metrics-endpoint="/api/consulta-autofill/metrics"
     document-type="cnh-e"
     label="Abrir Scanner de Câmera para preencher nome">
     <input id="nome" name="name" data-consulta-field="full_name" autocomplete="name" />
@@ -85,6 +88,7 @@ O controle deve ser filho direto do componente. Ele continua sendo um `input`, `
   <consulta-autofill
     project-id="pub_..."
     endpoint="/api/consulta-autofill"
+    metrics-endpoint="/api/consulta-autofill/metrics"
     target-form="#cadastro"
     document-type="auto"
     label="Preencher com documento">
@@ -123,7 +127,7 @@ document.querySelector("consulta-autofill")?.addEventListener("consulta:filled",
 
 O browser fala somente com os endpoints do parceiro. O componente envia:
 
-```json
+```jsonc
 // POST /session
 { "protocol_version": 1, "document_type": "auto" }
 
@@ -134,7 +138,22 @@ O browser fala somente com os endpoints do parceiro. O componente envia:
   "payload_base64": "...",
   "include_photo": false
 }
+
+// POST /metrics (opcional)
+{
+  "protocol_version": 1,
+  "session_token": "...",
+  "event": "filled"
+}
 ```
+
+`event` é um enum fechado: `opened`, `camera_requested`,
+`camera_granted`, `camera_denied`, `qr_found`, `decoded`, `confirmed`,
+`filled`, `closed` ou `error`. A requisição **nunca** inclui nome de campo,
+valor, tipo de documento, QR, foto, arquivo, mensagem de erro, IP ou
+identificador do usuário final. O componente só a emite quando
+`metrics-endpoint` está configurado; a falha dessa chamada não interrompe o
+scanner nem o preenchimento.
 
 O servidor do parceiro acrescenta seus próprios headers ao chamar a Consulta:
 
@@ -157,9 +176,19 @@ Para criar uma sessão, ele também envia a origem fixa do ambiente:
 
 Repasse o envelope de sucesso/erro preservando o status HTTP. Não logue `payload_base64`, `session_token`, foto, arquivo, campos ou corpo de resposta.
 
+Para a ponte `/metrics`, valide exatamente os três campos acima e encaminhe
+para `POST /api/v1/autofill/metrics` usando os mesmos headers de servidor.
+Aceite respostas repetidas como sucesso: os eventos são idempotentes por
+sessão e tipo. Não acrescente dados do browser à métrica.
+
 ## 5. Foto e privacidade
 
 A foto é desligada por padrão no projeto e na interface. Mesmo para um projeto com foto habilitada, a pessoa precisa marcar a caixa de confirmação antes do decode. O parceiro não deve alterar `include_photo` para `true` no servidor.
+
+O funil de métricas é deliberadamente separado da sua analytics geral. Se
+usar `consulta:filled` no seu próprio produto, não encaminhe `fields`,
+`filled`, `preserved`, documento ou qualquer detalhe do evento ao Consulta.
+O `metrics-endpoint` já cobre a telemetria mínima sem PII e sem expor a chave.
 
 O Autofill não dispara o webhook `document.decoded`; se o parceiro precisar de um evento de negócio, faça isso após salvar o cadastro sob as próprias regras de autorização e retenção.
 

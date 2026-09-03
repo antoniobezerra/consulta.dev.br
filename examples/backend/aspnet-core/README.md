@@ -2,7 +2,8 @@
 
 Ponte same-origin em Minimal API para .NET 10 LTS. A chave, o projeto e a
 origem são carregados somente pelo processo; o componente usa
-`endpoint="/api/consulta-autofill"`.
+`endpoint="/api/consulta-autofill"` e, para o funil sem PII,
+`metrics-endpoint="/api/consulta-autofill/metrics"`.
 
 ```bash
 cp .env.example .env
@@ -16,6 +17,7 @@ Os endpoints são:
 ```text
 POST /api/consulta-autofill/session
 POST /api/consulta-autofill/decode
+POST /api/consulta-autofill/metrics
 ```
 
 O exemplo faz parsing JSON estrito com limite de 1 MiB, valida a origem HTTPS

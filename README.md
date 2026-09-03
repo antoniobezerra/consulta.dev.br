@@ -19,6 +19,11 @@ Formulário do parceiro
 
 O navegador processa a imagem e extrai o QR localmente. A chamada autenticada para a API passa exclusivamente pelo backend do parceiro.
 
+Opcionalmente, o parceiro pode encaminhar um funil de etapas fixas (abertura,
+permissão de câmera, QR, decode, confirmação e preenchimento) ao painel
+Consulta. Essa ponte também passa pelo seu backend e não inclui documento,
+campo, valor, imagem, QR, IP ou identidade do usuário final.
+
 Free e Starter mantêm a marca `Consulta Autofill` e `Powered by consulta.dev.br` no iframe. Pro e Enterprise podem configurar nome e cor por projeto; essa configuração é resolvida pelo bootstrap autenticado, nunca por atributo ou payload vindo do browser.
 
 ## Pacotes

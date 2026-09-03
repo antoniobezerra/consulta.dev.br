@@ -1,7 +1,7 @@
 import { defineConsultaAutofill } from "./component.js";
 
 const FIELD_ELEMENT_NAME = "consulta-autofill-field";
-const FORWARDED_ATTRIBUTES = ["project-id", "endpoint", "target-form", "document-type", "label"] as const;
+const FORWARDED_ATTRIBUTES = ["project-id", "endpoint", "metrics-endpoint", "target-form", "document-type", "label"] as const;
 
 const styleText = `
   :host { --consulta-autofill-field-control-padding: 3.25rem; position: relative; display: block; }
