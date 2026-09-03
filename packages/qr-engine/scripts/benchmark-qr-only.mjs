@@ -17,7 +17,7 @@ const outputDirectory = resolve(process.env.QR_ONLY_OUTPUT_DIR || resolve(packag
 const maximumSlowdownPercent = Number(process.env.QR_ONLY_MAX_SLOWDOWN_PERCENT || "10");
 const browserName = process.argv.find((argument) => argument.startsWith("--browser="))?.slice("--browser=".length) || process.env.QR_ONLY_BROWSER || "chromium";
 const mode = process.argv.find((argument) => argument.startsWith("--mode="))?.slice("--mode=".length) || "benchmark";
-const fixtureScale = 16;
+const fixtureScale = 8;
 const require = createRequire(import.meta.url);
 
 const browsers = {
@@ -52,13 +52,21 @@ function sha256(bytes) {
 }
 
 async function createFixture() {
-  const payload = new TextEncoder().encode("consulta-qr-browser-benchmark-v1");
+  // Exercise byte preservation with a dense binary symbol instead of a
+  // text-only happy path. The QR is generated at runtime and never stores a
+  // document, payload fixture or image in the public repository.
+  const payload = Uint8Array.from({ length: 256 }, (_, index) => index);
   await prepareWriter({
     overrides: { wasmBinary: wasmBinary("zxing-wasm/writer/zxing_writer.wasm") },
     fireImmediately: true,
   });
   try {
-    const written = await writeBarcode(payload, { format: "QRCode", scale: 8, addQuietZones: true });
+    const written = await writeBarcode(payload, {
+      format: "QRCode",
+      scale: 8,
+      addQuietZones: true,
+      options: "ecLevel=H",
+    });
     if (written.error) throw new Error(`Não foi possível criar o fixture de benchmark: ${written.error}`);
     const width = written.symbol.width * fixtureScale;
     const height = written.symbol.height * fixtureScale;
@@ -76,6 +84,8 @@ async function createFixture() {
     written.symbol.data.fill(0);
     return {
       body: JSON.stringify({
+        name: "binary-all-bytes-ecc-h",
+        payload_bytes: payload.byteLength,
         width,
         height,
         rgba_base64: Buffer.from(rgba).toString("base64"),

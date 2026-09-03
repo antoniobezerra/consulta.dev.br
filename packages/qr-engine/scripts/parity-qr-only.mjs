@@ -32,6 +32,12 @@ const readerOptions = {
 
 const fixtures = [
   {
+    name: "version-1-ecc-l",
+    payload: encoder.encode("consulta-v1-l"),
+    writerOptions: { scale: 8, addQuietZones: true, options: "ecLevel=L,version=1" },
+    transform: { rasterScale: 4 },
+  },
+  {
     name: "ascii",
     payload: encoder.encode("consulta-qr-parity-ascii-v1"),
     writerOptions: { scale: 5, addQuietZones: true },
@@ -53,6 +59,18 @@ const fixtures = [
     transform: { rasterScale: 4 },
   },
   {
+    name: "version-10-ecc-q-binary",
+    payload: Uint8Array.from({ length: 96 }, (_, index) => (index * 73 + 19) & 0xff),
+    writerOptions: { scale: 5, addQuietZones: true, options: "ecLevel=Q,version=10" },
+    transform: { rasterScale: 3 },
+  },
+  {
+    name: "version-20-ecc-m",
+    payload: Uint8Array.from({ length: 300 }, (_, index) => (index * 29 + 101) & 0xff),
+    writerOptions: { scale: 3, addQuietZones: true, options: "ecLevel=M,version=20" },
+    transform: { rasterScale: 2, contrast: 0.92, brightness: 2 },
+  },
+  {
     name: "low-contrast-lighting",
     payload: encoder.encode("consulta-qr-parity-low-contrast-v1"),
     writerOptions: { scale: 8, addQuietZones: true, options: "ecLevel=H,version=5" },
@@ -63,6 +81,15 @@ const fixtures = [
     payload: encoder.encode("consulta-qr-parity-blur-v1"),
     writerOptions: { scale: 10, addQuietZones: true, options: "ecLevel=H,version=5" },
     transform: { rasterScale: 8, blurRadius: 1 },
+  },
+  {
+    // QR engines receive decoded RGBA pixels, not JPEG bytes. This fixture
+    // applies deterministic post-blur quantization to model lossy image
+    // compression artifacts without storing a document image in Git.
+    name: "lossy-compression-high-ecc",
+    payload: encoder.encode("consulta-qr-parity-lossy-compression-v1"),
+    writerOptions: { scale: 10, addQuietZones: true, options: "ecLevel=H,version=5" },
+    transform: { rasterScale: 8, blurRadius: 1, lossyQuantizationLevels: 32 },
   },
   {
     name: "trapezoid-high-ecc",
@@ -195,12 +222,29 @@ function adjustLighting(pixmap, { contrast = 1, brightness = 0, verticalGradient
   return pixmap;
 }
 
+function quantizePixmap(pixmap, levels) {
+  if (!Number.isSafeInteger(levels) || levels < 2 || levels > 256) {
+    throw new Error("A quantização sintética do fixture é inválida.");
+  }
+  const step = 255 / (levels - 1);
+  for (let index = 0; index < pixmap.data.length; index += 4) {
+    const value = clampByte(Math.round(pixmap.data[index] / step) * step);
+    pixmap.data[index] = value;
+    pixmap.data[index + 1] = value;
+    pixmap.data[index + 2] = value;
+    pixmap.data[index + 3] = 255;
+  }
+  return pixmap;
+}
+
 function transformPixmap(pixmap, transform = {}) {
   let result = pixmap;
   if (transform.rasterScale) result = upscalePixmap(result, transform.rasterScale);
   if (transform.trapezoidInset) result = trapezoidPixmap(result, transform.trapezoidInset);
   if (transform.blurRadius) result = blurPixmap(result, transform.blurRadius);
-  return adjustLighting(result, transform);
+  result = adjustLighting(result, transform);
+  if (transform.lossyQuantizationLevels) result = quantizePixmap(result, transform.lossyQuantizationLevels);
+  return result;
 }
 
 function bytesDigest(bytes) {

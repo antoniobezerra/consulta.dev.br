@@ -3,6 +3,8 @@ import jsQR from "jsqr";
 import { EmbedQrScanner } from "./qr-scanner.js";
 
 type BenchmarkFixture = {
+  name: string;
+  payload_bytes: number;
   width: number;
   height: number;
   rgba_base64: string;
@@ -19,7 +21,7 @@ type QrCompatibilityOptions = Pick<BenchmarkOptions, "candidateModuleUrl" | "can
 
 type BenchmarkResult = {
   worker_probe: true;
-  fixture: { width: number; height: number; pixels: number };
+  fixture: { name: string; payload_bytes: number; width: number; height: number; pixels: number };
   samples: number;
   scans_per_sample: number;
   cycles: number;
@@ -47,7 +49,13 @@ type QrCompatibilityResult = {
   worker_probe: true;
   baseline_probe: true;
   candidate_probe: true;
-  fixture: { width: number; height: number; pixels: number };
+  fixture: { name: string; payload_bytes: number; width: number; height: number; pixels: number };
+};
+
+type LoadedBenchmarkFixture = ImageData & {
+  expectedSha256: string;
+  name: string;
+  payloadBytes: number;
 };
 
 const WARMUP_SCANS = 5;
@@ -99,12 +107,17 @@ async function sha256(bytes: Uint8Array): Promise<string> {
   return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("");
 }
 
-async function fetchFixture(): Promise<ImageData & { expectedSha256: string }> {
+async function fetchFixture(): Promise<LoadedBenchmarkFixture> {
   const response = await fetch("/__consulta-qr-benchmark/fixture.json", { cache: "no-store" });
   const fixture = await response.json().catch(() => null) as Partial<BenchmarkFixture> | null;
   if (
     !response.ok ||
     !fixture ||
+    typeof fixture.name !== "string" ||
+    fixture.name.length < 1 ||
+    typeof fixture.payload_bytes !== "number" ||
+    !Number.isSafeInteger(fixture.payload_bytes) ||
+    fixture.payload_bytes < 1 ||
     typeof fixture.width !== "number" ||
     typeof fixture.height !== "number" ||
     typeof fixture.rgba_base64 !== "string" ||
@@ -121,8 +134,10 @@ async function fetchFixture(): Promise<ImageData & { expectedSha256: string }> {
   const pixels = new Uint8ClampedArray(bytes.byteLength);
   pixels.set(bytes);
   bytes.fill(0);
-  const image = new ImageData(pixels, fixture.width, fixture.height) as ImageData & { expectedSha256: string };
+  const image = new ImageData(pixels, fixture.width, fixture.height) as LoadedBenchmarkFixture;
   image.expectedSha256 = fixture.expected_sha256;
+  image.name = fixture.name;
+  image.payloadBytes = fixture.payload_bytes;
   return image;
 }
 
@@ -209,7 +224,7 @@ function copyImage(image: ImageData): ImageData {
   return new ImageData(new Uint8ClampedArray(image.data), image.width, image.height);
 }
 
-async function scanCopiedExpected(engine: QrEngine, image: ImageData & { expectedSha256: string }): Promise<void> {
+async function scanCopiedExpected(engine: QrEngine, image: LoadedBenchmarkFixture): Promise<void> {
   const copy = copyImage(image);
   try {
     await scanExpected(engine, copy, image.expectedSha256);
@@ -218,7 +233,7 @@ async function scanCopiedExpected(engine: QrEngine, image: ImageData & { expecte
   }
 }
 
-async function verifyWorkerProbe(image: ImageData & { expectedSha256: string }, options: QrCompatibilityOptions): Promise<void> {
+async function verifyWorkerProbe(image: LoadedBenchmarkFixture, options: QrCompatibilityOptions): Promise<void> {
   const pixels = new Uint8ClampedArray(image.data);
   const workerImage = new ImageData(pixels, image.width, image.height);
   const scanner = new EmbedQrScanner({
@@ -258,7 +273,7 @@ export async function runQrCompatibilityProbe(options: QrCompatibilityOptions): 
       worker_probe: true,
       baseline_probe: true,
       candidate_probe: true,
-      fixture: { width: image.width, height: image.height, pixels: image.width * image.height },
+      fixture: { name: image.name, payload_bytes: image.payloadBytes, width: image.width, height: image.height, pixels: image.width * image.height },
     };
   } finally {
     image.data.fill(0);
@@ -333,7 +348,7 @@ export async function runQrBenchmark(options: BenchmarkOptions): Promise<Benchma
     const jsQrReference = await measureJsQrReference(image, image.expectedSha256);
     return {
       worker_probe: true,
-      fixture: { width: image.width, height: image.height, pixels: image.width * image.height },
+      fixture: { name: image.name, payload_bytes: image.payloadBytes, width: image.width, height: image.height, pixels: image.width * image.height },
       samples: MEASURED_SCANS,
       scans_per_sample: SCANS_PER_SAMPLE,
       cycles: TOTAL_SCANS,
