@@ -2,6 +2,10 @@
 
 Pacotes públicos são versionados com Changesets. A publicação final ocorre somente em CI por Trusted Publishing/OIDC; colaboradores não devem publicar versões manualmente.
 
+`pnpm release` aborta deliberadamente no checkout local. Use a workflow manual
+**Release artifacts** depois de criar a tag aprovada; ela é o único caminho
+suportado para npm, GitHub Release e CDN.
+
 ## Coleção única de artefatos
 
 Depois de `pnpm build`, a coleção é preparada por uma única execução, sem publicar nada:

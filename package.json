@@ -25,7 +25,7 @@
     "release:publish-cdn": "node ./scripts/publish-cdn-release.mjs",
     "changeset": "changeset",
     "version-packages": "changeset version",
-    "release": "pnpm build && changeset publish"
+    "release": "node ./scripts/refuse-local-release.mjs"
   },
   "devDependencies": {
     "@changesets/cli": "^3.0.1",
