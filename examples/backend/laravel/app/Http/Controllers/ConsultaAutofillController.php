@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Client\ConnectionException;
+use Illuminate\Routing\Controller;
 use Illuminate\Support\Facades\Http;
 
 class ConsultaAutofillController extends Controller

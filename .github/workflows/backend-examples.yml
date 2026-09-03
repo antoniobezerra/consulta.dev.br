@@ -6,11 +6,13 @@ on:
     paths:
       - "examples/backend/spring-boot/**"
       - "examples/backend/aspnet-core/**"
+      - "examples/backend/laravel/**"
       - ".github/workflows/backend-examples.yml"
   pull_request:
     paths:
       - "examples/backend/spring-boot/**"
       - "examples/backend/aspnet-core/**"
+      - "examples/backend/laravel/**"
       - ".github/workflows/backend-examples.yml"
 
 permissions:
@@ -39,3 +41,20 @@ jobs:
         with:
           dotnet-version: "10.0.x"
       - run: dotnet test examples/backend/aspnet-core/ConsultaAutofill.AspNetCore.sln --configuration Release
+
+  laravel:
+    name: Laravel example
+    runs-on: ubuntu-24.04
+    defaults:
+      run:
+        working-directory: examples/backend/laravel
+    steps:
+      - uses: actions/checkout@v6
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: "8.3"
+          extensions: dom, curl, mbstring, zip
+          coverage: none
+      - run: composer validate --strict
+      - run: composer update --no-interaction --prefer-dist --no-progress
+      - run: composer test
