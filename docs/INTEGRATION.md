@@ -154,5 +154,6 @@ Erros têm formato estável:
 - Mostre nova tentativa para `QR_NOT_FOUND`, `CAMERA_DENIED` e `CAMERA_UNAVAILABLE`.
 - Respeite `429`/`RATE_LIMITED`; não faça retry automático em loop.
 - Trate `UPSTREAM_UNAVAILABLE` como erro temporário e guarde apenas `request_id` para suporte.
+- `AUTOFILL_BETA_REQUIRED` não é recuperável pelo navegador: o titular da conta deve ser aprovado para o beta antes de criar projetos ou sessões.
 
 O schema distribuído fica em [`packages/autofill/contracts/v1/autofill.schema.json`](../packages/autofill/contracts/v1/autofill.schema.json).

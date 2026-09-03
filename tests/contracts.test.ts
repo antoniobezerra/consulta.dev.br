@@ -88,7 +88,7 @@ describe("Autofill v1 JSON Schema", () => {
       validate({
         success: false,
         request_id: "req_12345678",
-        error: { code: "SESSION_EXPIRED", message: "A sessão expirou.", retryable: true },
+        error: { code: "AUTOFILL_BETA_REQUIRED", message: "O beta exige aprovação.", retryable: false },
       }),
     ).toBe(true);
     expect(
