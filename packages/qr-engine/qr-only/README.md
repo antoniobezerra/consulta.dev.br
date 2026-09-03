@@ -18,6 +18,7 @@ pnpm --filter @consulta-dev/qr-engine run qr-only:verify
 pnpm --filter @consulta-dev/qr-engine run qr-only:test
 pnpm --filter @consulta-dev/qr-engine run qr-only:parity
 QR_ONLY_OUTPUT_DIR=/caminho/do/artefato pnpm --filter @consulta-dev/qr-engine run qr-only:benchmark
+QR_ONLY_OUTPUT_DIR=/caminho/do/artefato pnpm --filter @consulta-dev/qr-engine run qr-only:firefox
 ```
 
 O build exige Docker Buildx e produz arquivos não versionados em `.qr-only-build/`. Ele se recusa a reutilizar uma pasta de saída não vazia: escolha outro diretório com `QR_ONLY_OUTPUT_DIR=/caminho/vazio` para não misturar artefatos de builds diferentes.
@@ -31,6 +32,8 @@ inteiro para o artefato de CI.
 A paridade sintética não substitui o corpus VIO privado, o benchmark em navegador, os 100 ciclos de memória nem a matriz de navegadores; ela é apenas um gate público, determinístico e reproduzível.
 
 `qr-only:benchmark` inicia um Chromium isolado e um servidor Vite efêmero. Ele fornece ao baseline e ao candidato os mesmos pixels RGBA sintéticos, ampliados a partir de um QR sem dados reais. Primeiro confirma que a capacidade do heap WASM não cresceu após 100 leituras e depois mede 30 amostras alternadas, com cinco leituras por amostra e validação fora do cronômetro. Antes disso, o harness exige uma leitura real pelo Worker do embed; não aceita o fallback principal. O candidato não pode ficar mais de 10% mais lento pela mediana. Esse é um gate apenas de Chromium; o corpus privado e a matriz completa de navegadores continuam obrigatórios antes de qualquer promoção.
+
+`qr-only:firefox` reutiliza o mesmo servidor e artefato para um probe funcional no Firefox: baseline, candidato e Worker do embed precisam extrair exatamente os bytes do QR sintético. Ele não usa o limite de tempo do Chromium como critério de promoção, porque desempenho entre engines de navegador não é comparável; Safari, dispositivos móveis e o corpus privado continuam pendentes.
 
 No CI, `qr-only:test` gera um QR sintético local, chama o artefato Emscripten
 real com pixels RGBA e confirma o payload bruto e o identificador de formato

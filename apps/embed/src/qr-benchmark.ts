@@ -14,6 +14,8 @@ type BenchmarkOptions = {
   maximumSlowdownPercent: number;
 };
 
+type QrCompatibilityOptions = Pick<BenchmarkOptions, "candidateModuleUrl" | "candidateWasmUrl">;
+
 type BenchmarkResult = {
   worker_probe: true;
   fixture: { width: number; height: number; pixels: number };
@@ -25,6 +27,13 @@ type BenchmarkResult = {
   candidate_slowdown_percent: number;
   candidate_heap_after_warmup_bytes: number;
   candidate_heap_after_cycles_bytes: number;
+};
+
+type QrCompatibilityResult = {
+  worker_probe: true;
+  baseline_probe: true;
+  candidate_probe: true;
+  fixture: { width: number; height: number; pixels: number };
 };
 
 const WARMUP_SCANS = 5;
@@ -110,7 +119,20 @@ async function timedSample(engine: QrEngine, image: ImageData, expectedSha256: s
   }
 }
 
-async function verifyWorkerProbe(image: ImageData & { expectedSha256: string }, options: BenchmarkOptions): Promise<void> {
+function copyImage(image: ImageData): ImageData {
+  return new ImageData(new Uint8ClampedArray(image.data), image.width, image.height);
+}
+
+async function scanCopiedExpected(engine: QrEngine, image: ImageData & { expectedSha256: string }): Promise<void> {
+  const copy = copyImage(image);
+  try {
+    await scanExpected(engine, copy, image.expectedSha256);
+  } finally {
+    if (copy.data.byteLength) copy.data.fill(0);
+  }
+}
+
+async function verifyWorkerProbe(image: ImageData & { expectedSha256: string }, options: QrCompatibilityOptions): Promise<void> {
   const pixels = new Uint8ClampedArray(image.data);
   const workerImage = new ImageData(pixels, image.width, image.height);
   const scanner = new EmbedQrScanner({
@@ -125,6 +147,37 @@ async function verifyWorkerProbe(image: ImageData & { expectedSha256: string }, 
   } finally {
     if (workerImage.data.byteLength) workerImage.data.fill(0);
     scanner.dispose();
+  }
+}
+
+/**
+ * Functional browser gate used outside Chromium's performance benchmark. It
+ * proves that both readers and the embed-owned Worker can read the same
+ * synthetic QR, without making browser-specific timing a promotion gate.
+ */
+export async function runQrCompatibilityProbe(options: QrCompatibilityOptions): Promise<QrCompatibilityResult> {
+  const image = await fetchFixture();
+  const baseline = new ZXingWasmQrEngine({ wasmUrl: readerWasmUrl });
+  const candidate = new ConsultaQrOnlyEngine({
+    moduleUrl: options.candidateModuleUrl,
+    wasmUrl: options.candidateWasmUrl,
+  });
+  try {
+    await verifyWorkerProbe(image, options);
+    await baseline.prepare();
+    await candidate.prepare();
+    await scanCopiedExpected(baseline, image);
+    await scanCopiedExpected(candidate, image);
+    return {
+      worker_probe: true,
+      baseline_probe: true,
+      candidate_probe: true,
+      fixture: { width: image.width, height: image.height, pixels: image.width * image.height },
+    };
+  } finally {
+    image.data.fill(0);
+    candidate.dispose();
+    baseline.dispose();
   }
 }
 
@@ -203,8 +256,11 @@ export async function runQrBenchmark(options: BenchmarkOptions): Promise<Benchma
 
 declare global {
   interface Window {
-    consultaQrBenchmark?: { run: (options: BenchmarkOptions) => Promise<BenchmarkResult> };
+    consultaQrBenchmark?: {
+      run: (options: BenchmarkOptions) => Promise<BenchmarkResult>;
+      compatibility: (options: QrCompatibilityOptions) => Promise<QrCompatibilityResult>;
+    };
   }
 }
 
-window.consultaQrBenchmark = { run: runQrBenchmark };
+window.consultaQrBenchmark = { run: runQrBenchmark, compatibility: runQrCompatibilityProbe };

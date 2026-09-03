@@ -40,8 +40,11 @@ jobs:
       - run: pnpm --filter @consulta-dev/qr-engine run qr-only:parity
         env:
           QR_ONLY_OUTPUT_DIR: ${{ github.workspace }}/qr-only-artifact
-      - run: pnpm exec playwright install --with-deps chromium
+      - run: pnpm exec playwright install --with-deps chromium firefox
       - run: pnpm --filter @consulta-dev/qr-engine run qr-only:benchmark
+        env:
+          QR_ONLY_OUTPUT_DIR: ${{ github.workspace }}/qr-only-artifact
+      - run: pnpm --filter @consulta-dev/qr-engine run qr-only:firefox
         env:
           QR_ONLY_OUTPUT_DIR: ${{ github.workspace }}/qr-only-artifact
       - uses: actions/upload-artifact@v4

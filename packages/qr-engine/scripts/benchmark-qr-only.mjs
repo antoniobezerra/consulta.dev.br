@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import { resolve } from "node:path";
-import { chromium } from "@playwright/test";
+import { chromium, firefox } from "@playwright/test";
 import { createServer as createViteServer } from "vite";
 import {
   prepareZXingModule as prepareWriter,
@@ -15,12 +15,18 @@ const workspaceDirectory = resolve(packageDirectory, "..", "..");
 const embedDirectory = resolve(workspaceDirectory, "apps", "embed");
 const outputDirectory = resolve(process.env.QR_ONLY_OUTPUT_DIR || resolve(packageDirectory, ".qr-only-build"));
 const maximumSlowdownPercent = Number(process.env.QR_ONLY_MAX_SLOWDOWN_PERCENT || "10");
+const browserName = process.argv.find((argument) => argument.startsWith("--browser="))?.slice("--browser=".length) || process.env.QR_ONLY_BROWSER || "chromium";
+const mode = process.argv.find((argument) => argument.startsWith("--mode="))?.slice("--mode=".length) || "benchmark";
 const fixtureScale = 16;
 const require = createRequire(import.meta.url);
+
+const browsers = { chromium, firefox };
 
 if (!Number.isFinite(maximumSlowdownPercent) || maximumSlowdownPercent < 0) {
   throw new Error("QR_ONLY_MAX_SLOWDOWN_PERCENT deve ser um número não negativo.");
 }
+if (!Object.hasOwn(browsers, browserName)) throw new Error(`Navegador QR-only não suportado: ${browserName}.`);
+if (mode !== "benchmark" && mode !== "compatibility") throw new Error(`Modo QR-only não suportado: ${mode}.`);
 
 const artifactFiles = new Map([
   ["/consulta_qr_reader.js", { path: resolve(outputDirectory, "consulta_qr_reader.js"), type: "application/javascript; charset=utf-8" }],
@@ -117,18 +123,22 @@ try {
   const address = server.httpServer?.address();
   if (!address || typeof address === "string") throw new Error("Não foi possível determinar a porta do servidor de benchmark.");
   const origin = `http://127.0.0.1:${address.port}`;
-  browser = await chromium.launch({ headless: true });
+  browser = await browsers[browserName].launch({ headless: true });
   const page = await browser.newPage();
   await page.goto(`${origin}/dev/qr-benchmark.html`, { waitUntil: "networkidle" });
-  const result = await page.evaluate(async ({ candidateModuleUrl, candidateWasmUrl, maximumSlowdown }) => {
+  const result = await page.evaluate(async ({ candidateModuleUrl, candidateWasmUrl, maximumSlowdown, probeMode }) => {
     if (!globalThis.consultaQrBenchmark) throw new Error("O harness de benchmark não iniciou.");
+    if (probeMode === "compatibility") {
+      return globalThis.consultaQrBenchmark.compatibility({ candidateModuleUrl, candidateWasmUrl });
+    }
     return globalThis.consultaQrBenchmark.run({ candidateModuleUrl, candidateWasmUrl, maximumSlowdownPercent: maximumSlowdown });
   }, {
     candidateModuleUrl: `${origin}/__consulta-qr-benchmark/artifacts/consulta_qr_reader.js`,
     candidateWasmUrl: `${origin}/__consulta-qr-benchmark/artifacts/consulta_qr_reader.wasm`,
     maximumSlowdown: maximumSlowdownPercent,
+    probeMode: mode,
   });
-  console.log(JSON.stringify({ browser: browser.version(), maximum_slowdown_percent: maximumSlowdownPercent, ...result }, null, 2));
+  console.log(JSON.stringify({ browser_name: browserName, browser: browser.version(), ...(mode === "benchmark" ? { maximum_slowdown_percent: maximumSlowdownPercent } : {}), ...result }, null, 2));
 } finally {
   await browser?.close();
   fixture.dispose();
