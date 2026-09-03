@@ -33,6 +33,7 @@
     "benchmark": "node ./scripts/benchmark-placeholder.mjs",
     "qr-only:build": "node ./scripts/build-qr-only.mjs",
     "qr-only:verify": "node ./scripts/verify-qr-only.mjs",
+    "qr-only:reproducible": "node ./scripts/verify-qr-only-reproducible.mjs",
     "qr-only:test": "node ./scripts/test-qr-only-artifact.mjs",
     "qr-only:parity": "node ./scripts/parity-qr-only.mjs",
     "qr-only:benchmark": "pnpm run build && pnpm run qr-only:verify && node ./scripts/benchmark-qr-only.mjs",

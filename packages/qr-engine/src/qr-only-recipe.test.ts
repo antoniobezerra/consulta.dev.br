@@ -12,6 +12,7 @@ const manifest = JSON.parse(readFileSync(resolve(recipeDirectory, "manifest.json
 const cmake = readFileSync(resolve(recipeDirectory, "CMakeLists.txt"), "utf8");
 const wrapper = readFileSync(resolve(recipeDirectory, "qr_reader.cpp"), "utf8");
 const dockerfile = readFileSync(resolve(recipeDirectory, "Dockerfile"), "utf8");
+const buildScript = readFileSync(resolve(recipeDirectory, "..", "scripts", "build-qr-only.mjs"), "utf8");
 
 describe("QR-only build recipe", () => {
   it("pins the compiler and source commit instead of depending on moving tags", () => {
@@ -54,5 +55,10 @@ describe("QR-only build recipe", () => {
   it("exports only the reader artifacts instead of the Emscripten toolchain", () => {
     expect(dockerfile).toContain("FROM scratch");
     expect(dockerfile).toContain("COPY --from=build /out/ /");
+  });
+
+  it("supports a cacheless second build for the CI reproducibility gate", () => {
+    expect(buildScript).toContain("QR_ONLY_BUILD_NO_CACHE");
+    expect(buildScript).toContain('"--no-cache"');
   });
 });

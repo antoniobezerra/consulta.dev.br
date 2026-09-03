@@ -15,6 +15,8 @@ O wrapper recebe somente pixels RGBA do canvas. Assim, JPG/PNG/WebP/PDF continua
 ```bash
 pnpm --filter @consulta-dev/qr-engine run qr-only:build
 pnpm --filter @consulta-dev/qr-engine run qr-only:verify
+QR_ONLY_OUTPUT_DIR=/caminho/segunda-build QR_ONLY_BUILD_NO_CACHE=1 pnpm --filter @consulta-dev/qr-engine run qr-only:build
+QR_ONLY_OUTPUT_DIR=/caminho/primeira-build QR_ONLY_REPRODUCIBLE_OUTPUT_DIR=/caminho/segunda-build pnpm --filter @consulta-dev/qr-engine run qr-only:reproducible
 pnpm --filter @consulta-dev/qr-engine run qr-only:test
 pnpm --filter @consulta-dev/qr-engine run qr-only:parity
 QR_ONLY_OUTPUT_DIR=/caminho/do/artefato pnpm --filter @consulta-dev/qr-engine run qr-only:benchmark
@@ -23,6 +25,8 @@ QR_ONLY_OUTPUT_DIR=/caminho/do/artefato pnpm --filter @consulta-dev/qr-engine ru
 ```
 
 O build exige Docker Buildx e produz arquivos não versionados em `.qr-only-build/`. Ele se recusa a reutilizar uma pasta de saída não vazia: escolha outro diretório com `QR_ONLY_OUTPUT_DIR=/caminho/vazio` para não misturar artefatos de builds diferentes.
+
+Na CI, a receita é compilada uma segunda vez em outro diretório com `QR_ONLY_BUILD_NO_CACHE=1`. `qr-only:reproducible` exige igualdade byte a byte do módulo JavaScript, WASM, versão do Emscripten e manifesto; qualquer divergência falha antes dos testes funcionais e do upload do primeiro artefato.
 
 O estágio final do Docker é `scratch` e contém somente os três arquivos de
 saída. Isso impede que o exportador do Buildx copie o toolchain Emscripten

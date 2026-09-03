@@ -7,6 +7,11 @@ const packageDirectory = resolve(import.meta.dirname, "..");
 const recipeDirectory = resolve(packageDirectory, "qr-only");
 const recipe = JSON.parse(readFileSync(resolve(recipeDirectory, "manifest.json"), "utf8"));
 const outputDirectory = resolve(process.env.QR_ONLY_OUTPUT_DIR || resolve(packageDirectory, ".qr-only-build"));
+const withoutCache = process.env.QR_ONLY_BUILD_NO_CACHE === "1";
+
+if (process.env.QR_ONLY_BUILD_NO_CACHE && !withoutCache) {
+  throw new Error("QR_ONLY_BUILD_NO_CACHE deve ser 1 quando definido.");
+}
 
 if (existsSync(outputDirectory) && readdirSync(outputDirectory).length > 0) {
   throw new Error(`A saída já contém arquivos: ${outputDirectory}. Use QR_ONLY_OUTPUT_DIR apontando para uma pasta vazia.`);
@@ -22,6 +27,7 @@ const docker = spawnSync(
     "--build-arg", `ZXING_CPP_REPOSITORY=${recipe.zxing_cpp.repository}`,
     "--build-arg", `ZXING_CPP_COMMIT=${recipe.zxing_cpp.commit}`,
     "--output", `type=local,dest=${outputDirectory}`,
+    ...(withoutCache ? ["--no-cache"] : []),
     recipeDirectory,
   ],
   { stdio: "inherit" },

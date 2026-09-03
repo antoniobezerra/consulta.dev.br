@@ -31,9 +31,20 @@ jobs:
       - run: pnpm --filter @consulta-dev/qr-engine run qr-only:build
         env:
           QR_ONLY_OUTPUT_DIR: ${{ github.workspace }}/qr-only-artifact
+      - run: pnpm --filter @consulta-dev/qr-engine run qr-only:build
+        env:
+          QR_ONLY_OUTPUT_DIR: ${{ github.workspace }}/qr-only-reproducible-artifact
+          QR_ONLY_BUILD_NO_CACHE: "1"
       - run: pnpm --filter @consulta-dev/qr-engine run qr-only:verify
         env:
           QR_ONLY_OUTPUT_DIR: ${{ github.workspace }}/qr-only-artifact
+      - run: pnpm --filter @consulta-dev/qr-engine run qr-only:verify
+        env:
+          QR_ONLY_OUTPUT_DIR: ${{ github.workspace }}/qr-only-reproducible-artifact
+      - run: pnpm --filter @consulta-dev/qr-engine run qr-only:reproducible
+        env:
+          QR_ONLY_OUTPUT_DIR: ${{ github.workspace }}/qr-only-artifact
+          QR_ONLY_REPRODUCIBLE_OUTPUT_DIR: ${{ github.workspace }}/qr-only-reproducible-artifact
       - run: pnpm --filter @consulta-dev/qr-engine run qr-only:test
         env:
           QR_ONLY_OUTPUT_DIR: ${{ github.workspace }}/qr-only-artifact
