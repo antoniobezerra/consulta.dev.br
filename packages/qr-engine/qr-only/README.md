@@ -4,8 +4,7 @@ Esta é uma receita experimental e reproduzível para um leitor WebAssembly que 
 
 ## Fonte fixada
 
-- Candidato: ZXing-C++ no commit fixado `d43b96bda9fef3cb82462ad0bfd8fa10f6fde9ad` (não é uma tag de release).
-- Baseline: `zxing-wasm@3.1.3`, que fixa ZXing-C++ no commit `a17fd9dc65d6aa0dd2f660fdfca7a6a6613d938f`.
+- Candidato e baseline: ZXing-C++ no commit fixado `a17fd9dc65d6aa0dd2f660fdfca7a6a6613d938f`, a mesma revisão usada por `zxing-wasm@3.1.3` (não é uma tag de release).
 - Emscripten `3.1.74`, imagem `linux/amd64` fixada por digest no `manifest.json` e no `Dockerfile`.
 - QR Code ligado; 1D, Aztec, Data Matrix, MaxiCode, PDF417, writers, C API, filesystem virtual e decoder de arquivos desligados.
 

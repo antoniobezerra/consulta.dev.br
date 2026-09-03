@@ -2,7 +2,7 @@ ARG EMSDK_IMAGE=emscripten/emsdk@sha256:af45409f3199d88db4b1b03af0098532c8fb33a3
 FROM ${EMSDK_IMAGE} AS build
 
 ARG ZXING_CPP_REPOSITORY=https://github.com/zxing-cpp/zxing-cpp.git
-ARG ZXING_CPP_COMMIT=d43b96bda9fef3cb82462ad0bfd8fa10f6fde9ad
+ARG ZXING_CPP_COMMIT=a17fd9dc65d6aa0dd2f660fdfca7a6a6613d938f
 
 WORKDIR /work
 

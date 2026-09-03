@@ -22,6 +22,7 @@ describe("QR-only build recipe", () => {
       version: "3.1.3",
       zxing_cpp_commit: "a17fd9dc65d6aa0dd2f660fdfca7a6a6613d938f",
     });
+    expect(manifest.zxing_cpp.commit).toBe(manifest.baseline.zxing_cpp_commit);
     expect(manifest.emscripten.image).toMatch(/^emscripten\/emsdk@sha256:[0-9a-f]{64}$/);
     expect(manifest.emscripten.platform).toBe("linux/amd64");
     expect(dockerfile).toContain(manifest.zxing_cpp.commit);
