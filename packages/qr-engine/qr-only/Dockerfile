@@ -1,5 +1,5 @@
 ARG EMSDK_IMAGE=emscripten/emsdk@sha256:af45409f3199d88db4b1b03af0098532c8fb33a375ac257463eeb0a622870d06
-FROM ${EMSDK_IMAGE}
+FROM ${EMSDK_IMAGE} AS build
 
 ARG ZXING_CPP_REPOSITORY=https://github.com/zxing-cpp/zxing-cpp.git
 ARG ZXING_CPP_COMMIT=d43b96bda9fef3cb82462ad0bfd8fa10f6fde9ad
@@ -37,3 +37,9 @@ RUN mkdir -p /out \
     && cp /work/build/consulta_qr_reader.js /out/consulta_qr_reader.js \
     && cp /work/build/consulta_qr_reader.wasm /out/consulta_qr_reader.wasm \
     && emcc --version > /out/emscripten-version.txt
+
+# The local Buildx exporter emits the complete final filesystem. Keep the
+# exported stage intentionally tiny so CI copies only the distributable reader
+# instead of the full Emscripten toolchain.
+FROM scratch
+COPY --from=build /out/ /

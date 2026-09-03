@@ -39,4 +39,9 @@ describe("QR-only build recipe", () => {
     expect(manifest.build.maximum_wasm_bytes).toBe(716800);
     expect(manifest.build.minimum_size_reduction).toBe(0.3);
   });
+
+  it("exports only the reader artifacts instead of the Emscripten toolchain", () => {
+    expect(dockerfile).toContain("FROM scratch");
+    expect(dockerfile).toContain("COPY --from=build /out/ /");
+  });
 });

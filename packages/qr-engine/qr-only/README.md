@@ -19,4 +19,8 @@ pnpm --filter @consulta-dev/qr-engine run qr-only:verify
 
 O build exige Docker Buildx e produz arquivos não versionados em `.qr-only-build/`. Ele se recusa a reutilizar uma pasta de saída não vazia: escolha outro diretório com `QR_ONLY_OUTPUT_DIR=/caminho/vazio` para não misturar artefatos de builds diferentes.
 
+O estágio final do Docker é `scratch` e contém somente os três arquivos de
+saída. Isso impede que o exportador do Buildx copie o toolchain Emscripten
+inteiro para o artefato de CI.
+
 `qr-only:verify` confere hash, tamanho bruto, tamanho gzip e redução em relação ao baseline. A promoção ainda requer igualdade de bytes no corpus sintético e privado, benchmark no navegador, 100 ciclos de memória e a matriz de navegadores do runbook.
