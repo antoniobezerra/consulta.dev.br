@@ -3,25 +3,7 @@ name: Backend examples
 on:
   push:
     branches: [main]
-    paths:
-      - "examples/backend/spring-boot/**"
-      - "examples/backend/aspnet-core/**"
-      - "examples/backend/laravel/**"
-      - "examples/backend/nextjs/**"
-      - "examples/backend/express/**"
-      - "examples/backend/fastapi/**"
-      - "examples/backend/go/**"
-      - ".github/workflows/backend-examples.yml"
   pull_request:
-    paths:
-      - "examples/backend/spring-boot/**"
-      - "examples/backend/aspnet-core/**"
-      - "examples/backend/laravel/**"
-      - "examples/backend/nextjs/**"
-      - "examples/backend/express/**"
-      - "examples/backend/fastapi/**"
-      - "examples/backend/go/**"
-      - ".github/workflows/backend-examples.yml"
 
 permissions:
   contents: read
@@ -125,3 +107,26 @@ jobs:
       - run: composer validate --strict
       - run: composer update --no-interaction --prefer-dist --no-progress
       - run: composer test
+
+  verify:
+    name: backend examples
+    if: always()
+    needs: [nextjs, express, fastapi, go, spring-boot, aspnet-core, laravel]
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Require every backend bridge to pass
+        env:
+          NEXTJS_RESULT: ${{ needs.nextjs.result }}
+          EXPRESS_RESULT: ${{ needs.express.result }}
+          FASTAPI_RESULT: ${{ needs.fastapi.result }}
+          GO_RESULT: ${{ needs.go.result }}
+          SPRING_RESULT: ${{ needs['spring-boot'].result }}
+          ASPNET_RESULT: ${{ needs['aspnet-core'].result }}
+          LARAVEL_RESULT: ${{ needs.laravel.result }}
+        run: |
+          for result in "$NEXTJS_RESULT" "$EXPRESS_RESULT" "$FASTAPI_RESULT" "$GO_RESULT" "$SPRING_RESULT" "$ASPNET_RESULT" "$LARAVEL_RESULT"; do
+            if [ "$result" != "success" ]; then
+              echo "A matriz de exemplos de backend não foi aprovada: $result"
+              exit 1
+            fi
+          done
