@@ -43,6 +43,32 @@
       "type": "string",
       "enum": ["cnh-e", "crlv-e"]
     },
+    "branding": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["mode", "name", "accent_color", "show_powered_by"],
+          "properties": {
+            "mode": { "const": "consulta" },
+            "name": { "const": "Consulta Autofill" },
+            "accent_color": { "const": "#155EEF" },
+            "show_powered_by": { "const": true }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["mode", "name", "accent_color", "show_powered_by"],
+          "properties": {
+            "mode": { "const": "partner" },
+            "name": { "type": "string", "minLength": 1, "maxLength": 60 },
+            "accent_color": { "type": "string", "pattern": "^#[0-9A-Fa-f]{6}$" },
+            "show_powered_by": { "const": false }
+          }
+        }
+      ]
+    },
     "errorCode": {
       "type": "string",
       "enum": [
@@ -135,6 +161,43 @@
       "properties": {
         "success": { "const": true },
         "data": { "$ref": "#/$defs/session" },
+        "request_id": { "$ref": "#/$defs/requestId" }
+      }
+    },
+    "embedBootstrap": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "protocol_version",
+        "project_id",
+        "session_id",
+        "expires_at",
+        "allowed_document_types",
+        "photo_enabled",
+        "branding"
+      ],
+      "properties": {
+        "protocol_version": { "$ref": "#/$defs/protocolVersion" },
+        "project_id": { "$ref": "#/$defs/projectId" },
+        "session_id": { "$ref": "#/$defs/sessionId" },
+        "expires_at": { "type": "string", "format": "date-time" },
+        "allowed_document_types": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/decodedDocumentType" }
+        },
+        "photo_enabled": { "type": "boolean" },
+        "branding": { "$ref": "#/$defs/branding" }
+      }
+    },
+    "embedBootstrapSuccessResponse": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["success", "data", "request_id"],
+      "properties": {
+        "success": { "const": true },
+        "data": { "$ref": "#/$defs/embedBootstrap" },
         "request_id": { "$ref": "#/$defs/requestId" }
       }
     },

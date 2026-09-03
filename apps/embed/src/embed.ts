@@ -29,6 +29,13 @@ type BootstrapConfig = {
   sessionId: string;
   expiresAt: string;
   photoEnabled: boolean;
+  branding: BootstrapBranding;
+};
+type BootstrapBranding = {
+  mode: "consulta" | "partner";
+  name: string;
+  accentColor: string;
+  showPoweredBy: boolean;
 };
 type DecodedResult = {
   document: AutofillDecodedDocument;
@@ -91,6 +98,41 @@ function messageText(value: unknown, fallback: string): string {
   return isRecord(value) && isRecord(value.error) && typeof value.error.message === "string" ? value.error.message : fallback;
 }
 
+function consultaBranding(): BootstrapBranding {
+  return {
+    mode: "consulta",
+    name: "Consulta Autofill",
+    accentColor: "#155EEF",
+    showPoweredBy: true,
+  };
+}
+
+function bootstrapBranding(value: unknown): BootstrapBranding {
+  if (!isRecord(value) || typeof value.name !== "string" || value.name.trim().length < 1 || value.name.trim().length > 60) {
+    return consultaBranding();
+  }
+  if (typeof value.accent_color !== "string" || !/^#[0-9A-F]{6}$/i.test(value.accent_color) || typeof value.show_powered_by !== "boolean") {
+    return consultaBranding();
+  }
+  const name = value.name.trim();
+  const accentColor = value.accent_color.toUpperCase();
+  if (value.mode === "partner" && value.show_powered_by === false) {
+    return { mode: "partner", name, accentColor, showPoweredBy: false };
+  }
+  if (value.mode === "consulta" && value.show_powered_by === true && name === "Consulta Autofill" && accentColor === "#155EEF") {
+    return consultaBranding();
+  }
+  return consultaBranding();
+}
+
+function accentForeground(accentColor: string): string {
+  const red = Number.parseInt(accentColor.slice(1, 3), 16);
+  const green = Number.parseInt(accentColor.slice(3, 5), 16);
+  const blue = Number.parseInt(accentColor.slice(5, 7), 16);
+  const luminance = (red * 299 + green * 587 + blue * 114) / 1_000;
+  return luminance > 160 ? "#101828" : "#FFFFFF";
+}
+
 function sessionPayload(value: unknown, query: EmbedQuery): SessionPayload | null {
   if (!isRecord(value)) return null;
   const token = value.session_token;
@@ -129,7 +171,13 @@ function bootstrapConfig(value: unknown, query: EmbedQuery, sessionId: string): 
   }
   const validTypes = data.allowed_document_types.every((type) => type === "cnh-e" || type === "crlv-e");
   if (!validTypes || !data.allowed_document_types.length || Date.parse(data.expires_at) <= Date.now()) return null;
-  return { projectId: query.projectId, sessionId, expiresAt: data.expires_at, photoEnabled: data.photo_enabled };
+  return {
+    projectId: query.projectId,
+    sessionId,
+    expiresAt: data.expires_at,
+    photoEnabled: data.photo_enabled,
+    branding: bootstrapBranding(data.branding),
+  };
 }
 
 function decodeResult(value: unknown): DecodedResult | null {
@@ -196,7 +244,7 @@ class EmbedController {
     private readonly query: EmbedQuery,
   ) {
     root.innerHTML = `
-      <section class="shell"><header><div class="brand"><span class="mark">✓</span><span>Consulta Autofill</span></div><button type="button" class="close" aria-label="Fechar">×</button></header><main><section class="panel" aria-live="polite"></section></main><p class="status" role="status" aria-live="polite"></p></section>`;
+      <section class="shell"><header><div class="brand"><span class="mark">✓</span><span class="brand-name">Consulta Autofill</span></div><button type="button" class="close" aria-label="Fechar">×</button></header><main><section class="panel" aria-live="polite"></section></main><p class="powered">Powered by consulta.dev.br</p><p class="status" role="status" aria-live="polite"></p></section>`;
     const panel = root.querySelector<HTMLElement>(".panel");
     const status = root.querySelector<HTMLElement>(".status");
     if (!panel || !status) throw new Error("Não foi possível inicializar o Autofill.");
@@ -248,6 +296,7 @@ class EmbedController {
       const config = this.sessionId ? bootstrapConfig(body, this.query, this.sessionId) : null;
       if (!response.ok || !config) throw new Error(messageText(body, "Não foi possível validar esta sessão Autofill."));
       this.config = config;
+      this.applyBranding(config.branding);
       this.setStatus("Pronto para ler seu documento.");
       this.options();
     } catch (cause) {
@@ -278,7 +327,7 @@ class EmbedController {
     this.stopCamera();
     this.clearResult();
     this.clearPayload();
-    const card = this.card("Como prefere ler o documento?", "O QR Code é lido neste dispositivo. Seus dados só seguem para a Consulta após sua confirmação.");
+    const card = this.card("Como prefere ler o documento?", "O QR Code é lido neste dispositivo. Seus dados só seguem para validação após sua confirmação.");
     const actions = document.createElement("div"); actions.className = "actions";
     actions.append(
       this.option("◉", "Usar câmera", "Aponte a câmera para o QR Code do documento.", () => void this.startCamera()),
@@ -472,7 +521,7 @@ class EmbedController {
   private requestDecode(includePhoto: boolean): void {
     if (!this.payload || !this.config) return;
     if (Date.parse(this.config.expiresAt) <= Date.now()) return this.error("A sessão expirou. Feche e abra o Autofill novamente.");
-    this.loading("Buscando os dados", "A Consulta está validando o documento. Isso pode levar alguns segundos…"); this.setStatus("Decodificando documento…");
+    this.loading("Buscando os dados", "O serviço está validando o documento. Isso pode levar alguns segundos…"); this.setStatus("Decodificando documento…");
     this.post("embed.payload", { payload_base64: base64(this.payload), include_photo: includePhoto });
   }
 
@@ -504,6 +553,15 @@ class EmbedController {
 
   private card(title: string, text: string): HTMLElement {
     const card = document.createElement("section"); card.className = "card"; const heading = document.createElement("h1"); heading.textContent = title; const description = document.createElement("p"); description.textContent = text; card.append(heading, description); return card;
+  }
+
+  private applyBranding(branding: BootstrapBranding): void {
+    this.root.style.setProperty("--consulta-brand-accent", branding.accentColor);
+    this.root.style.setProperty("--consulta-brand-foreground", accentForeground(branding.accentColor));
+    const brandName = this.root.querySelector<HTMLElement>(".brand-name");
+    const powered = this.root.querySelector<HTMLElement>(".powered");
+    if (brandName) brandName.textContent = branding.name;
+    if (powered) powered.hidden = !branding.showPoweredBy;
   }
 
   private option(icon: string, title: string, text: string, action: () => void): HTMLButtonElement {

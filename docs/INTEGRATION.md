@@ -55,6 +55,17 @@ Quando o pacote estiver publicado, carregue uma versão exata pelo npm ou pelo C
 </form>
 ```
 
+Não adicione atributo, query string ou payload de `branding` a esse snippet. A
+marca vem exclusivamente da configuração segura do projeto no servidor:
+
+- Free e Starter mostram `Consulta Autofill` e `Powered by consulta.dev.br`.
+- Pro e Enterprise podem definir nome e cor de destaque por projeto.
+
+O iframe recebe somente a configuração de exibição no bootstrap autenticado;
+nem o componente, nem o endpoint do parceiro aceitam uma escolha de marca do
+browser. Isso mantém a chave, o plano e a regra comercial fora da página do
+cliente.
+
 O controle deve ser filho direto do componente. Ele continua sendo um `input`, `textarea` ou `select` normal no DOM do parceiro: validação nativa, `FormData`, máscaras e bindings de framework permanecem funcionando. Após a revisão, o Autofill ainda pode preencher os demais campos mapeados do mesmo formulário.
 
 ### Botão separado
@@ -81,7 +92,7 @@ O controle deve ser filho direto do componente. Ele continua sendo um `input`, `
 </form>
 ```
 
-O `project-id` é público e serve para consistência visual/protocolo. A associação real entre API key e projeto é feita pelo seu servidor, com `CONSULTA_PROJECT_ID`; nunca confie no atributo enviado pelo navegador para escolher uma credencial.
+O `project-id` é público e serve para consistência visual/protocolo. A associação real entre API key e projeto é feita pelo seu servidor, com `CONSULTA_PROJECT_ID`; nunca confie no atributo enviado pelo navegador para escolher uma credencial, plano ou marca.
 
 Campos com `data-consulta-field` são preenchidos somente se estiverem vazios. A pessoa revisa os dados antes de confirmar e pode editar os valores no iframe.
 

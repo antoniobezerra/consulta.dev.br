@@ -3,8 +3,10 @@ export const AUTOFILL_PROTOCOL_VERSION = 1 as const;
 
 export const AUTOFILL_DOCUMENT_TYPES = ["auto", "cnh-e", "crlv-e"] as const;
 export const AUTOFILL_DECODED_DOCUMENT_TYPES = ["cnh-e", "crlv-e"] as const;
+export const AUTOFILL_BRANDING_MODES = ["consulta", "partner"] as const;
 export type AutofillDocumentType = (typeof AUTOFILL_DOCUMENT_TYPES)[number];
 export type AutofillDecodedDocumentType = (typeof AUTOFILL_DECODED_DOCUMENT_TYPES)[number];
+export type AutofillBrandingMode = (typeof AUTOFILL_BRANDING_MODES)[number];
 
 export const AUTOFILL_ERROR_CODES = [
   "INVALID_REQUEST",
@@ -71,6 +73,25 @@ export interface AutofillSessionSuccessResponse {
 }
 
 export type AutofillSessionResponse = AutofillSessionSuccessResponse | AutofillErrorResponse;
+
+/** Display-only branding returned by the authenticated iframe bootstrap. */
+export interface AutofillEmbedBranding {
+  mode: AutofillBrandingMode;
+  name: string;
+  accent_color: string;
+  show_powered_by: boolean;
+}
+
+/** Internal hosted-frame bootstrap contract; it never travels through the partner browser API. */
+export interface AutofillEmbedBootstrap {
+  protocol_version: typeof AUTOFILL_PROTOCOL_VERSION;
+  project_id: string;
+  session_id: string;
+  expires_at: string;
+  allowed_document_types: AutofillDecodedDocumentType[];
+  photo_enabled: boolean;
+  branding: AutofillEmbedBranding;
+}
 
 /** Request sent by the component to the partner after the embed extracts QR bytes. */
 export interface AutofillDecodeRequest {

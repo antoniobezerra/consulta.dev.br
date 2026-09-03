@@ -60,6 +60,37 @@ describe("Autofill v1 JSON Schema", () => {
     ).toBe(true);
   });
 
+  it("keeps iframe branding server-owned and plan-safe", () => {
+    const validate = validator("embedBootstrapSuccessResponse");
+    const response = {
+      success: true,
+      request_id: "req_12345678",
+      data: {
+        protocol_version: 1,
+        project_id: "pub_12345678",
+        session_id: "afs_12345678",
+        expires_at: "2026-09-03T12:00:00.000Z",
+        allowed_document_types: ["cnh-e", "crlv-e"],
+        photo_enabled: false,
+        branding: {
+          mode: "partner",
+          name: "Cadastros Acme",
+          accent_color: "#7C3AED",
+          show_powered_by: false,
+        },
+      },
+    };
+
+    expect(validate(response)).toBe(true);
+    expect(validate({
+      ...response,
+      data: {
+        ...response.data,
+        branding: { ...response.data.branding, show_powered_by: true },
+      },
+    })).toBe(false);
+  });
+
   it("rejects browser-controlled project identifiers and unsupported fields", () => {
     const validateSessionRequest = validator("sessionCreateRequest");
     const validateDecodeRequest = validator("decodeRequest");

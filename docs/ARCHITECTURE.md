@@ -21,6 +21,11 @@ O iframe só torna câmera, arquivo e PDF disponíveis depois que:
 
 Mensagens nunca usam `targetOrigin: "*"`.
 
+A marca exibida pelo iframe também não é um atributo do componente nem uma
+escolha enviada pela página parceira. O bootstrap autenticado resolve a marca
+do projeto conforme o plano da conta; uma configuração ausente, inválida ou
+não permitida retorna à experiência `Consulta Autofill` com o crédito visível.
+
 ## Domínios
 
 - `cdn.consulta.dev.br` entrega assets com versão e hash imutáveis.

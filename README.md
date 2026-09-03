@@ -19,6 +19,8 @@ Formulário do parceiro
 
 O navegador processa a imagem e extrai o QR localmente. A chamada autenticada para a API passa exclusivamente pelo backend do parceiro.
 
+Free e Starter mantêm a marca `Consulta Autofill` e `Powered by consulta.dev.br` no iframe. Pro e Enterprise podem configurar nome e cor por projeto; essa configuração é resolvida pelo bootstrap autenticado, nunca por atributo ou payload vindo do browser.
+
 ## Pacotes
 
 | Pacote | Finalidade | Estado |
