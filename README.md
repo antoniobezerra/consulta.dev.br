@@ -57,6 +57,8 @@ pnpm test:e2e
 
 Leia [a arquitetura](docs/ARCHITECTURE.md) e a [política de segurança](SECURITY.md) antes de integrar ou contribuir.
 
+O schema de referência do contrato v1 está em [packages/autofill/contracts/v1/autofill.schema.json](packages/autofill/contracts/v1/autofill.schema.json). Ele é distribuído junto com `@consulta-dev/autofill`.
+
 ## Status
 
 O repositório está no início da implementação pública. A API e o produto de produção não devem ser assumidos como estáveis até a primeira release `v1`.

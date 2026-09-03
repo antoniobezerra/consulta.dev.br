@@ -5,7 +5,7 @@
   "license": "Apache-2.0",
   "type": "module",
   "sideEffects": false,
-  "files": ["dist"],
+  "files": ["dist", "contracts"],
   "main": "./dist/index.js",
   "module": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -13,7 +13,8 @@
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
-    }
+    },
+    "./contracts/v1/autofill.schema.json": "./contracts/v1/autofill.schema.json"
   },
   "repository": {
     "type": "git",
