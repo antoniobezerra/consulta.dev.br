@@ -1,6 +1,7 @@
 import {
   AUTOFILL_EMBED_METRIC_EVENTS,
   AUTOFILL_PROTOCOL_VERSION,
+  isAutofillDecodeData,
   isAutofillEmbedReadyMessage,
   isAutofillFrameMessage,
 } from "./protocol.js";
@@ -98,12 +99,7 @@ function isSessionResponse(value: unknown): value is AutofillSessionResponse {
 function isDecodeResponse(value: unknown): value is AutofillDecodeResponse {
   if (!isRecord(value) || typeof value.success !== "boolean") return false;
   if (!value.success) return isRecord(value.error) && typeof value.request_id === "string";
-  if (!isRecord(value.data) || !isRecord(value.data.document) || !isRecord(value.data.fields)) return false;
-  return (
-    (value.data.document.type === "cnh-e" || value.data.document.type === "crlv-e") &&
-    typeof value.data.document.label === "string" &&
-    typeof value.request_id === "string"
-  );
+  return isAutofillDecodeData(value.data) && typeof value.request_id === "string";
 }
 
 function isDecodedDocument(value: unknown): value is AutofillDecodedDocument {

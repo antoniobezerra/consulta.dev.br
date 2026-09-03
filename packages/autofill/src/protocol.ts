@@ -4,6 +4,13 @@ export const AUTOFILL_PROTOCOL_VERSION = 1 as const;
 export const AUTOFILL_DOCUMENT_TYPES = ["auto", "cnh-e", "crlv-e"] as const;
 export const AUTOFILL_DECODED_DOCUMENT_TYPES = ["cnh-e", "crlv-e"] as const;
 export const AUTOFILL_BRANDING_MODES = ["consulta", "partner"] as const;
+/** Maximum number of editable values a decoded document may expose in v1. */
+export const AUTOFILL_MAX_DECODED_FIELDS = 64;
+/** Maximum UTF-16 code units per decoded field value in v1. */
+export const AUTOFILL_MAX_FIELD_VALUE_CHARS = 4_096;
+/** The optional review photo is bounded before it is decoded in the iframe. */
+export const AUTOFILL_MAX_PHOTO_BYTES = 5 * 1024 * 1024;
+export const AUTOFILL_MAX_PHOTO_BASE64_CHARS = 4 * Math.ceil(AUTOFILL_MAX_PHOTO_BYTES / 3);
 /**
  * Fixed, privacy-safe lifecycle events. Values, field names, document data,
  * camera frames and browser identifiers are intentionally excluded.
@@ -171,6 +178,50 @@ export interface AutofillDecodeSuccessResponse {
 }
 
 export type AutofillDecodeResponse = AutofillDecodeSuccessResponse | AutofillErrorResponse;
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+}
+
+function hasExactKeys(value: Record<string, unknown>, keys: readonly string[]): boolean {
+  return Object.keys(value).length === keys.length && keys.every((key) => Object.hasOwn(value, key));
+}
+
+function isBase64(value: unknown, maxLength: number): value is string {
+  return typeof value === "string"
+    && value.length >= 4
+    && value.length <= maxLength
+    && value.length % 4 === 0
+    && /^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/.test(value);
+}
+
+/** Validates the bounded decoded result before it crosses into the hosted iframe UI. */
+export function isAutofillDecodeData(value: unknown): value is AutofillDecodeData {
+  if (!isRecord(value) || !isRecord(value.document) || !isRecord(value.fields)) return false;
+  if (!hasExactKeys(value, ["document", "fields", "photo"])) return false;
+  const document = value.document;
+  if (!hasExactKeys(document, ["type", "label"])) return false;
+  if (
+    (document.type !== "cnh-e" && document.type !== "crlv-e")
+    || typeof document.label !== "string"
+    || document.label.length < 1
+    || document.label.length > 120
+  ) {
+    return false;
+  }
+  const entries = Object.entries(value.fields);
+  if (entries.length > AUTOFILL_MAX_DECODED_FIELDS) return false;
+  for (const [key, field] of entries) {
+    if (!/^[a-z][a-z0-9_]{0,63}$/.test(key) || typeof field !== "string" || field.length > AUTOFILL_MAX_FIELD_VALUE_CHARS) {
+      return false;
+    }
+  }
+  if (value.photo === null) return true;
+  return isRecord(value.photo)
+    && hasExactKeys(value.photo, ["mime_type", "base64"])
+    && (value.photo.mime_type === "image/jpeg" || value.photo.mime_type === "image/png")
+    && isBase64(value.photo.base64, AUTOFILL_MAX_PHOTO_BASE64_CHARS);
+}
 
 export const AUTOFILL_FRAME_MESSAGE_TYPES = [
   "parent.session",

@@ -147,6 +147,7 @@ test("places an accessible camera trigger in a native field and fills through th
       payload: {
         document: { type: "cnh-e", label: "CNH-e" },
         fields: { full_name: "Pessoa Sintética" },
+        photo: null,
       },
     });
   }, { evaluatedProjectId: projectId, evaluatedSessionId: sessionId, evaluatedNonce: nonce });

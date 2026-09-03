@@ -1,5 +1,7 @@
 import {
+  AUTOFILL_MAX_PHOTO_BYTES,
   AUTOFILL_PROTOCOL_VERSION,
+  isAutofillDecodeData,
   isAutofillFrameMessage,
   type AutofillDecodedDocument,
   type AutofillEmbedMetricEvent,
@@ -16,7 +18,6 @@ const NONCE_PATTERN = /^[A-Za-z0-9_-]{16,256}$/;
 const MAX_UPLOAD_BYTES = 10 * 1024 * 1024;
 const MAX_PDF_PAGES = 3;
 const MAX_RENDER_EDGE = 2_048;
-const MAX_PHOTO_BYTES = 5 * 1024 * 1024;
 // The entry bundle is emitted below assets/, while the baseline WASM is at
 // the root of the immutable embed release. Resolve against the module URL so
 // this works both below /embed/v<version>/ on the CDN and in Vite dev mode.
@@ -182,25 +183,19 @@ function bootstrapConfig(value: unknown, query: EmbedQuery, sessionId: string): 
 }
 
 function decodeResult(value: unknown): DecodedResult | null {
-  if (!isRecord(value) || !isRecord(value.document) || !isRecord(value.fields)) return null;
-  const document = value.document;
-  if ((document.type !== "cnh-e" && document.type !== "crlv-e") || typeof document.label !== "string" || !document.label) return null;
-  const fields: Record<string, string> = {};
-  for (const [key, field] of Object.entries(value.fields)) {
-    if (!/^[a-z][a-z0-9_]{0,63}$/.test(key) || typeof field !== "string" || field.length > 4_096) return null;
-    fields[key] = field;
-  }
+  if (!isAutofillDecodeData(value)) return null;
+  const fields = { ...value.fields };
   let photoUrl: string | null = null;
-  if (isRecord(value.photo) && (value.photo.mime_type === "image/jpeg" || value.photo.mime_type === "image/png") && typeof value.photo.base64 === "string") {
+  if (value.photo) {
     const bytes = fromBase64(value.photo.base64);
-    if (bytes && bytes.byteLength <= MAX_PHOTO_BYTES) {
+    if (bytes && bytes.byteLength <= AUTOFILL_MAX_PHOTO_BYTES) {
       const copy = new Uint8Array(bytes.byteLength);
       copy.set(bytes);
       photoUrl = URL.createObjectURL(new Blob([copy.buffer], { type: value.photo.mime_type }));
       bytes.fill(0);
     }
   }
-  return { document: { type: document.type, label: document.label }, fields, photoUrl };
+  return { document: { type: value.document.type, label: value.document.label }, fields, photoUrl };
 }
 
 function fieldLabel(key: string): string {
