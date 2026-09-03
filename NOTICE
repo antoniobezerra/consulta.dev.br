@@ -2,3 +2,5 @@ Consulta Autofill
 Copyright 2026 Consulta.dev.br contributors
 
 This product includes third-party components. Their notices and license information are documented in the third-party directory when each dependency or generated artifact is introduced.
+
+The experimental QR-only build recipe derives its WebAssembly wrapper from ZXing-C++ v3.1.1 (Copyright 2016 Nu-book Inc. and Copyright 2023 Axel Waggershauser), licensed under Apache-2.0. It is not a released Autofill artifact until the promotion gates are complete.

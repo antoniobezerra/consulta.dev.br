@@ -4,7 +4,7 @@ import {
   type AutofillDecodedDocument,
   type AutofillFrameMessage,
 } from "@consulta-dev/autofill/protocol";
-import { ZXingWasmQrEngine, type QrEngine } from "@consulta-dev/qr-engine";
+import { ConsultaQrOnlyEngine, FallbackQrEngine, ZXingWasmQrEngine, type QrEngine } from "@consulta-dev/qr-engine";
 import { AnnotationMode, getDocument, GlobalWorkerOptions } from "pdfjs-dist/build/pdf.mjs";
 import pdfWorkerUrl from "pdfjs-dist/build/pdf.worker.min.mjs?url";
 
@@ -15,6 +15,8 @@ const MAX_PDF_PAGES = 3;
 const MAX_RENDER_EDGE = 2_048;
 const MAX_PHOTO_BYTES = 5 * 1024 * 1024;
 const readerWasmUrl = new URL(`${import.meta.env.BASE_URL}zxing_reader.wasm`, window.location.origin).toString();
+const qrOnlyModuleUrl = import.meta.env.VITE_CONSULTA_QR_ONLY_MODULE_URL?.trim();
+const qrOnlyWasmUrl = import.meta.env.VITE_CONSULTA_QR_ONLY_WASM_URL?.trim();
 
 type EmbedQuery = { projectId: string; nonce: string; parentOrigin: string };
 type BootstrapConfig = {
@@ -164,8 +166,20 @@ function fieldLabel(key: string): string {
   return labels[key] || key.replaceAll("_", " ").replace(/\b\w/g, (letter) => letter.toUpperCase());
 }
 
+function qrEngine(): QrEngine {
+  const baseline = new ZXingWasmQrEngine({ wasmUrl: readerWasmUrl });
+  // A versão QR-only é opt-in por URLs versionadas no ambiente de deploy. Se
+  // ela falhar ao iniciar, o fallback é o baseline já testado; sem URLs, não
+  // há request nem comportamento experimental no cliente.
+  if (!qrOnlyModuleUrl || !qrOnlyWasmUrl) return baseline;
+  return new FallbackQrEngine({
+    primary: new ConsultaQrOnlyEngine({ moduleUrl: qrOnlyModuleUrl, wasmUrl: qrOnlyWasmUrl }),
+    fallback: baseline,
+  });
+}
+
 class EmbedController {
-  private readonly engine: QrEngine = new ZXingWasmQrEngine({ wasmUrl: readerWasmUrl });
+  private readonly engine: QrEngine = qrEngine();
   private readonly panel: HTMLElement;
   private readonly status: HTMLElement;
   private port: MessagePort | null = null;

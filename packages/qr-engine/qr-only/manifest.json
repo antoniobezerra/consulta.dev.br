@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "zxing_cpp": {
+    "repository": "https://github.com/zxing-cpp/zxing-cpp.git",
+    "tag": "v3.1.1",
+    "commit": "d43b96bda9fef3cb82462ad0bfd8fa10f6fde9ad",
+    "license": "Apache-2.0"
+  },
+  "emscripten": {
+    "image": "emscripten/emsdk@sha256:af45409f3199d88db4b1b03af0098532c8fb33a375ac257463eeb0a622870d06",
+    "tag": "3.1.74",
+    "platform": "linux/amd64"
+  },
+  "build": {
+    "target": "consulta_qr_reader",
+    "formats": ["QRCode"],
+    "writers": false,
+    "maximum_wasm_bytes": 716800,
+    "minimum_size_reduction": 0.3
+  }
+}

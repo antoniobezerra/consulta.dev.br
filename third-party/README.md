@@ -12,6 +12,13 @@ Este diretório recebe avisos de licença, origem e hash de componentes que prec
 
 Antes de promover o build QR-only próprio, registre aqui o commit do ZXing-C++, o digest da imagem Emscripten, SHA-256 do WASM e os textos completos de licença exigidos pelas dependências distribuídas.
 
+## Receita QR-only experimental
+
+- Fonte: ZXing-C++ [`v3.1.1`](https://github.com/zxing-cpp/zxing-cpp/tree/v3.1.1), commit `d43b96bda9fef3cb82462ad0bfd8fa10f6fde9ad`, Apache-2.0.
+- Compilador: `emscripten/emsdk:3.1.74` para `linux/amd64`, fixado por digest em [`packages/qr-engine/qr-only/manifest.json`](../packages/qr-engine/qr-only/manifest.json).
+- Wrapper: derivado do reader WASM do ZXing-C++; recebe somente pixmap RGBA e não inclui `stb_image`, writers, C API, filesystem virtual ou leitores de outros formatos.
+- Estado: receita presente, artefato ainda **não promovido**. Não copie o `.wasm` gerado para `apps/embed/public/` sem relatório completo dos gates.
+
 ## PDF.js 6.3.289
 
 - Pacote: [`pdfjs-dist@6.3.289`](https://www.npmjs.com/package/pdfjs-dist/v/6.3.289)
