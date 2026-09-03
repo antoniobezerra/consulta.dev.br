@@ -57,6 +57,10 @@ pnpm test:e2e
 
 Leia [a arquitetura](docs/ARCHITECTURE.md) e a [política de segurança](SECURITY.md) antes de integrar ou contribuir.
 
+O guia com o componente, a ponte same-origin, CSP/Permissions Policy e exemplos de servidor está em [docs/INTEGRATION.md](docs/INTEGRATION.md).
+
+Os exemplos de ponte segura para Next.js, Express, Laravel, FastAPI e Go ficam em [examples/backend](examples/backend).
+
 O schema de referência do contrato v1 está em [packages/autofill/contracts/v1/autofill.schema.json](packages/autofill/contracts/v1/autofill.schema.json). Ele é distribuído junto com `@consulta-dev/autofill`.
 
 ## Status
