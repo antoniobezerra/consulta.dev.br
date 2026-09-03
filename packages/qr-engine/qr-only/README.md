@@ -4,7 +4,8 @@ Esta é uma receita experimental e reproduzível para um leitor WebAssembly que 
 
 ## Fonte fixada
 
-- ZXing-C++ `v3.1.1`, commit `d43b96bda9fef3cb82462ad0bfd8fa10f6fde9ad`.
+- Candidato: ZXing-C++ no commit fixado `d43b96bda9fef3cb82462ad0bfd8fa10f6fde9ad` (não é uma tag de release).
+- Baseline: `zxing-wasm@3.1.3`, que fixa ZXing-C++ no commit `a17fd9dc65d6aa0dd2f660fdfca7a6a6613d938f`.
 - Emscripten `3.1.74`, imagem `linux/amd64` fixada por digest no `manifest.json` e no `Dockerfile`.
 - QR Code ligado; 1D, Aztec, Data Matrix, MaxiCode, PDF417, writers, C API, filesystem virtual e decoder de arquivos desligados.
 
@@ -28,7 +29,7 @@ O estágio final do Docker é `scratch` e contém somente os três arquivos de
 saída. Isso impede que o exportador do Buildx copie o toolchain Emscripten
 inteiro para o artefato de CI.
 
-`qr-only:verify` confere hash, tamanho bruto, tamanho gzip e redução em relação ao baseline. `qr-only:test` chama o leitor compilado de verdade para validar o contrato mínimo. `qr-only:parity` fornece três QRs públicos e sintéticos — ASCII, UTF-8 rotacionado e bytes binários invertidos — como os mesmos pixels RGBA para o baseline e para o artefato QR-only, e exige igualdade exata dos bytes retornados.
+`qr-only:verify` confere hash, tamanho bruto, tamanho gzip e redução em relação ao baseline. `qr-only:test` chama o leitor compilado de verdade para validar o contrato mínimo. `qr-only:parity` fornece sete QRs públicos e sintéticos como os mesmos pixels RGBA para o baseline e para o artefato QR-only: ASCII, UTF-8 rotacionado, bytes binários invertidos, todos os 256 valores de byte com ECC-H e três capturas leves degradadas (contraste/iluminação, blur e perspectiva). O gate exige igualdade exata dos bytes retornados.
 
 A paridade sintética não substitui o corpus VIO privado, o benchmark em navegador, os 100 ciclos de memória nem a matriz de navegadores; ela é apenas um gate público, determinístico e reproduzível.
 

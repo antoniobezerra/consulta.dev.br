@@ -14,7 +14,8 @@ Antes de promover o build QR-only próprio, registre aqui o commit do ZXing-C++,
 
 ## Receita QR-only experimental
 
-- Fonte: ZXing-C++ [`v3.1.1`](https://github.com/zxing-cpp/zxing-cpp/tree/v3.1.1), commit `d43b96bda9fef3cb82462ad0bfd8fa10f6fde9ad`, Apache-2.0.
+- Fonte do candidato: ZXing-C++ no [commit `d43b96b`](https://github.com/zxing-cpp/zxing-cpp/commit/d43b96bda9fef3cb82462ad0bfd8fa10f6fde9ad), Apache-2.0. Esse commit não é uma tag de release.
+- Referência do baseline: `zxing-wasm@3.1.3` fixa ZXing-C++ no [commit `a17fd9d`](https://github.com/zxing-cpp/zxing-cpp/commit/a17fd9dc65d6aa0dd2f660fdfca7a6a6613d938f); alinhar o candidato a essa revisão continua sendo uma etapa de promoção.
 - Compilador: `emscripten/emsdk:3.1.74` para `linux/amd64`, fixado por digest em [`packages/qr-engine/qr-only/manifest.json`](../packages/qr-engine/qr-only/manifest.json).
 - Wrapper: derivado do reader WASM do ZXing-C++; recebe somente pixmap RGBA e não inclui `stb_image`, writers, C API, filesystem virtual ou leitores de outros formatos.
 - Estado: receita presente, artefato ainda **não promovido**. Não copie o `.wasm` gerado para `apps/embed/public/` sem relatório completo dos gates.
