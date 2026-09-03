@@ -43,7 +43,7 @@ pnpm build
 Para testes end-to-end, instale o navegador uma vez:
 
 ```bash
-pnpm exec playwright install chromium firefox
+pnpm exec playwright install chromium firefox webkit
 pnpm test:e2e
 ```
 

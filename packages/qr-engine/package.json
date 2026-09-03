@@ -36,7 +36,8 @@
     "qr-only:test": "node ./scripts/test-qr-only-artifact.mjs",
     "qr-only:parity": "node ./scripts/parity-qr-only.mjs",
     "qr-only:benchmark": "pnpm run build && pnpm run qr-only:verify && node ./scripts/benchmark-qr-only.mjs",
-    "qr-only:firefox": "node ./scripts/benchmark-qr-only.mjs --browser=firefox --mode=compatibility"
+    "qr-only:firefox": "node ./scripts/benchmark-qr-only.mjs --browser=firefox --mode=compatibility",
+    "qr-only:webkit": "node ./scripts/benchmark-qr-only.mjs --browser=webkit --mode=compatibility"
   },
   "dependencies": {
     "zxing-wasm": "3.1.3"

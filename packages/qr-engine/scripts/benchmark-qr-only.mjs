@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import { resolve } from "node:path";
-import { chromium, firefox } from "@playwright/test";
+import { chromium, firefox, webkit } from "@playwright/test";
 import { createServer as createViteServer } from "vite";
 import {
   prepareZXingModule as prepareWriter,
@@ -20,7 +20,7 @@ const mode = process.argv.find((argument) => argument.startsWith("--mode="))?.sl
 const fixtureScale = 16;
 const require = createRequire(import.meta.url);
 
-const browsers = { chromium, firefox };
+const browsers = { chromium, firefox, webkit };
 
 if (!Number.isFinite(maximumSlowdownPercent) || maximumSlowdownPercent < 0) {
   throw new Error("QR_ONLY_MAX_SLOWDOWN_PERCENT deve ser um número não negativo.");
