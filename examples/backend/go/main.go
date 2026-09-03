@@ -128,7 +128,7 @@ func loadConfig() config {
 
 func partnerHandler(settings config, limiter *rateLimiter, authorize partnerAccessAuthorizer, action string) http.HandlerFunc {
 	return func(writer http.ResponseWriter, request *http.Request) {
-		if origin := request.Header.Get("Origin"); origin != "" && origin != settings.partnerOrigin {
+		if origin := request.Header.Get("Origin"); origin != settings.partnerOrigin {
 			writeError(writer, "INVALID_ORIGIN", "Origem não autorizada.", http.StatusForbidden)
 			return
 		}

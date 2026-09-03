@@ -24,9 +24,11 @@ async function withEnvironment(callback) {
 }
 
 function request(action, body, origin = environment.CONSULTA_PARTNER_ORIGIN) {
+  const headers = { "content-type": "application/json" };
+  if (origin) headers.origin = origin;
   return new Request(`https://partner.example/api/consulta-autofill/${action}`, {
     method: "POST",
-    headers: { "content-type": "application/json", origin },
+    headers,
     body: JSON.stringify(body),
   });
 }
@@ -86,6 +88,13 @@ test("rejeita origem e campos de métrica extras antes do upstream", async () =>
       );
       assert.equal(wrongOrigin.status, 403);
       assert.equal((await wrongOrigin.json()).error.code, "INVALID_ORIGIN");
+
+      const missingOrigin = await POST(
+        request("session", { protocol_version: 1, document_type: "auto" }, null),
+        context("session"),
+      );
+      assert.equal(missingOrigin.status, 403);
+      assert.equal((await missingOrigin.json()).error.code, "INVALID_ORIGIN");
 
       const extraMetric = await POST(
         request("metrics", {
@@ -151,5 +160,36 @@ test("limita a solicitação autorizada antes do upstream", async () => {
     assert.equal(response.status, 429);
     assert.equal((await response.json()).error.code, "RATE_LIMITED");
     assert.equal(calls, 0);
+  });
+});
+
+test("não usa headers controlados pelo browser como chave de rate limit", async () => {
+  await withEnvironment(async () => {
+    let receivedKey = null;
+    const handler = createAutofillPostHandler({
+      authorize: async () => true,
+      rateLimiter: {
+        allow: (_scope, key) => {
+          receivedKey = key;
+          return true;
+        },
+      },
+      forwardRequest: async () => ({
+        status: 201,
+        body: { success: true, request_id: "req_synthetic", data: {} },
+      }),
+    });
+    const response = await handler(new Request("https://partner.example/api/consulta-autofill/session", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        origin: environment.CONSULTA_PARTNER_ORIGIN,
+        "x-forwarded-for": "203.0.113.99",
+        "x-real-ip": "203.0.113.98",
+      },
+      body: JSON.stringify({ protocol_version: 1, document_type: "auto" }),
+    }), context("session"));
+    assert.equal(response.status, 201);
+    assert.equal(receivedKey, "authenticated");
   });
 });

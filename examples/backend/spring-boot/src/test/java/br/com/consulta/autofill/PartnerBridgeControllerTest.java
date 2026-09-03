@@ -58,6 +58,18 @@ class PartnerBridgeControllerTest {
   }
 
   @Test
+  void rejectsAMissingOriginWithoutContactingTheUpstream() throws Exception {
+    mvc.perform(post("/api/consulta-autofill/session")
+            .contentType(MediaType.APPLICATION_JSON)
+            .content("{\"protocol_version\":1,\"document_type\":\"auto\"}"))
+        .andExpect(status().isForbidden())
+        .andExpect(header().string("Cache-Control", "no-store"))
+        .andExpect(jsonPath("$.error.code").value("INVALID_ORIGIN"));
+
+    verify(bridge, never()).forward(eq("/api/v1/autofill/sessions"), anyMap());
+  }
+
+  @Test
   void fixesTheProjectOriginOnTheServerWhenCreatingASession() throws Exception {
     when(bridge.forward(eq("/api/v1/autofill/sessions"), anyMap())).thenReturn(new PartnerBridgeService.BridgeResponse(
         201,

@@ -108,7 +108,7 @@ class PartnerBridgeController {
 
   private ResponseEntity<?> guard(String origin, HttpServletRequest request, String scope, int limit, byte[] body) {
     if (body.length > MAX_BODY_BYTES) return error("INVALID_REQUEST", "A requisição Autofill é inválida.", 400);
-    if (origin != null && !origin.equals(properties.getPartnerOrigin())) return error("INVALID_ORIGIN", "Origem não autorizada.", 403);
+    if (!properties.getPartnerOrigin().equals(origin)) return error("INVALID_ORIGIN", "Origem não autorizada.", 403);
     if (!accessPolicy.hasAutofillAccess(request)) return error("UNAUTHENTICATED", "Não autorizado.", 401);
     String key = scope + ":" + request.getRemoteAddr();
     if (!rateLimiter.allow(key, limit)) return error("RATE_LIMITED", "Muitas solicitações; tente novamente em breve.", 429);

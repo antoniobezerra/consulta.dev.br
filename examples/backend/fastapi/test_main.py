@@ -44,10 +44,11 @@ class SyntheticResponse:
 
 
 class PartnerBridgeTests(unittest.IsolatedAsyncioTestCase):
-    async def request(self, path: str, body: dict[str, object], origin: str = "https://partner.example") -> httpx.Response:
+    async def request(self, path: str, body: dict[str, object], origin: str | None = "https://partner.example") -> httpx.Response:
         transport = httpx.ASGITransport(app=main.app)
         async with httpx.AsyncClient(transport=transport, base_url="http://partner.test") as client:
-            return await client.post(path, json=body, headers={"Origin": origin})
+            headers = {"Origin": origin} if origin else {}
+            return await client.post(path, json=body, headers=headers)
 
     async def test_session_forwards_only_server_owned_origin(self) -> None:
         calls: list[tuple[str, dict[str, object]]] = []
@@ -98,6 +99,11 @@ class PartnerBridgeTests(unittest.IsolatedAsyncioTestCase):
                 {"protocol_version": 1, "document_type": "auto"},
                 "https://attacker.example",
             )
+            missing_origin = await self.request(
+                "/api/consulta-autofill/session",
+                {"protocol_version": 1, "document_type": "auto"},
+                None,
+            )
             extra_metric = await self.request(
                 "/api/consulta-autofill/metrics",
                 {
@@ -110,6 +116,8 @@ class PartnerBridgeTests(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(wrong_origin.status_code, 403)
         self.assertEqual(wrong_origin.json()["error"]["code"], "INVALID_ORIGIN")
+        self.assertEqual(missing_origin.status_code, 403)
+        self.assertEqual(missing_origin.json()["error"]["code"], "INVALID_ORIGIN")
         self.assertEqual(extra_metric.status_code, 400)
         self.assertEqual(extra_metric.json()["error"]["code"], "INVALID_REQUEST")
 

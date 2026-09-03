@@ -33,6 +33,20 @@ public sealed class BridgeEndpointTests : IClassFixture<BridgeFactory> {
     }
 
     [Fact]
+    public async Task Rejects_a_missing_origin_before_contacting_the_upstream() {
+        using var request = new HttpRequestMessage(HttpMethod.Post, "/api/consulta-autofill/session") {
+            Content = JsonContent.Create(new { protocol_version = 1, document_type = "auto" }),
+        };
+
+        using var response = await _client.SendAsync(request);
+        var body = await response.Content.ReadFromJsonAsync<JsonElement>();
+
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+        Assert.Equal("no-store", response.Headers.CacheControl?.ToString());
+        Assert.Equal("INVALID_ORIGIN", body.GetProperty("error").GetProperty("code").GetString());
+    }
+
+    [Fact]
     public async Task Rejects_a_browser_controlled_unknown_decode_field() {
         using var request = new HttpRequestMessage(HttpMethod.Post, "/api/consulta-autofill/decode") {
             Content = JsonContent.Create(new {

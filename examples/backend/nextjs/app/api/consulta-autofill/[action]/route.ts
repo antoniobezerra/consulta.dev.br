@@ -7,6 +7,7 @@ const RATE_LIMITS = { session: 20, decode: 60, metrics: 180 } as const;
 type Action = keyof typeof RATE_LIMITS;
 type Settings = ReturnType<typeof config>;
 type PartnerAccessVerifier = (request: Request) => boolean | Promise<boolean>;
+type PartnerRateKeyResolver = (request: Request) => string | Promise<string>;
 type LocalRateLimiter = {
   allow(scope: Action, key: string, limit: number): boolean;
 };
@@ -43,12 +44,18 @@ export function createLocalRateLimiter(now = () => Date.now()): LocalRateLimiter
   };
 }
 
-function clientRateKey(request: Request): string {
-  // Only trust forwarded headers when the deployment's proxy overwrites them.
-  // A stable fallback keeps the sample safe on platforms that expose no IP.
-  const forwarded = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim();
-  const real = request.headers.get("x-real-ip")?.trim();
-  return (forwarded || real || "anonymous").slice(0, 128);
+/**
+ * Safe default for the deliberately fail-closed example. A production adapter
+ * should return an opaque identifier derived from its established server-side
+ * principal; it must never use a browser header, QR, token or form field.
+ */
+export function defaultPartnerRateKey(request: Request): string {
+  void request;
+  return "authenticated";
+}
+
+function normalizedRateKey(value: string): string {
+  return /^[A-Za-z0-9:_-]{1,128}$/.test(value) ? value : "authenticated";
 }
 
 function isAction(value: string): value is Action {
@@ -119,10 +126,12 @@ async function forward(settings: Settings, path: string, body: unknown) {
 export function createAutofillPostHandler({
   authorize = authorizePartnerAccess,
   rateLimiter = createLocalRateLimiter(),
+  rateKey = defaultPartnerRateKey,
   forwardRequest = forward,
 }: {
   authorize?: PartnerAccessVerifier;
   rateLimiter?: LocalRateLimiter;
+  rateKey?: PartnerRateKeyResolver;
   forwardRequest?: Forwarder;
 } = {}) {
   return async function POST(request: Request, context: { params: Promise<{ action: string }> }) {
@@ -133,7 +142,7 @@ export function createAutofillPostHandler({
       return error("INTERNAL_ERROR", "Configuração do Autofill indisponível.", 500);
     }
     const origin = request.headers.get("origin");
-    if (origin && origin !== settings.partnerOrigin) return error("INVALID_ORIGIN", "Origem não autorizada.", 403);
+    if (origin !== settings.partnerOrigin) return error("INVALID_ORIGIN", "Origem não autorizada.", 403);
 
     const { action } = await context.params;
     if (!isAction(action)) return error("INVALID_REQUEST", "Ação Autofill não suportada.", 404);
@@ -143,7 +152,13 @@ export function createAutofillPostHandler({
       // Do not disclose session-provider errors to an unauthenticated browser.
       return error("UNAUTHENTICATED", "Não autorizado.", 401);
     }
-    if (!rateLimiter.allow(action, clientRateKey(request), RATE_LIMITS[action])) {
+    let key: string;
+    try {
+      key = normalizedRateKey(await rateKey(request));
+    } catch {
+      key = "authenticated";
+    }
+    if (!rateLimiter.allow(action, key, RATE_LIMITS[action])) {
       return error("RATE_LIMITED", "Muitas solicitações; tente novamente em breve.", 429);
     }
 

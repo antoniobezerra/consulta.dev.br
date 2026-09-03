@@ -73,6 +73,14 @@ func TestRejectsCrossOriginAndMetricFieldsBeforeUpstream(t *testing.T) {
 		t.Fatalf("expected origin rejection, got %d", wrongOriginResponse.Code)
 	}
 
+	missingOrigin := httptest.NewRequest(http.MethodPost, "/api/consulta-autofill/session", bytes.NewBufferString(`{"protocol_version":1,"document_type":"auto"}`))
+	missingOrigin.Header.Set("Content-Type", "application/json")
+	missingOriginResponse := httptest.NewRecorder()
+	sessionHandler(missingOriginResponse, missingOrigin)
+	if missingOriginResponse.Code != http.StatusForbidden {
+		t.Fatalf("expected missing origin rejection, got %d", missingOriginResponse.Code)
+	}
+
 	metricHandler := partnerHandler(settings, limiter, allowPartnerAccess, "metrics")
 	extraMetric := httptest.NewRequest(http.MethodPost, "/api/consulta-autofill/metrics", bytes.NewBufferString(`{"protocol_version":1,"session_token":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","event":"filled","fields":{"cpf":"00000000000"}}`))
 	extraMetric.Header.Set("Content-Type", "application/json")

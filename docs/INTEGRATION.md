@@ -17,6 +17,11 @@ CONSULTA_PARTNER_ORIGIN=https://cadastro.exemplo.com.br
 
 `CONSULTA_PARTNER_ORIGIN` deve ser a origem HTTPS exata cadastrada no projeto Autofill. Não receba esse valor no corpo do browser e não aceite wildcard.
 
+As três rotas são exclusivas do browser: exija o header `Origin` exatamente
+igual a `CONSULTA_PARTNER_ORIGIN` e rejeite sua ausência. O componente sempre
+o envia nas chamadas `fetch` JSON; uma rota sem essa verificação pode virar
+ponte involuntária para chamadas fora do seu site.
+
 Seu servidor expõe dois endpoints same-origin obrigatórios e, se quiser o
 funil completo no painel Consulta, uma ponte opcional de métricas:
 

@@ -25,6 +25,21 @@ class ConsultaAutofillControllerTest extends TestCase
         Http::assertNothingSent();
     }
 
+    public function test_it_rejects_a_missing_origin_without_contacting_the_upstream(): void
+    {
+        Http::fake();
+
+        $response = $this->postJson('/api/consulta-autofill/session', [
+            'protocol_version' => 1,
+            'document_type' => 'auto',
+        ])
+            ->assertForbidden()
+            ->assertJsonPath('error.code', 'INVALID_ORIGIN');
+
+        $this->assertNoStore($response);
+        Http::assertNothingSent();
+    }
+
     public function test_it_rejects_a_browser_controlled_decode_field_without_contacting_the_upstream(): void
     {
         Http::fake();

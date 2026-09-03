@@ -99,7 +99,7 @@ static IResult? Guard(HttpRequest request, HttpResponse response, PartnerSetting
         return Error(response, "INVALID_REQUEST", "A requisição Autofill é inválida.", StatusCodes.Status400BadRequest);
     }
     var origin = request.Headers["Origin"].ToString();
-    if (!string.IsNullOrEmpty(origin) && !string.Equals(origin, options.PartnerOrigin, StringComparison.Ordinal)) {
+    if (!string.Equals(origin, options.PartnerOrigin, StringComparison.Ordinal)) {
         return Error(response, "INVALID_ORIGIN", "Origem não autorizada.", StatusCodes.Status403Forbidden);
     }
     if (!accessPolicy.HasAutofillAccess(request.HttpContext)) {

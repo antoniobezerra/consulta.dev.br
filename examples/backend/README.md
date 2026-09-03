@@ -29,6 +29,10 @@ QR, payload, header inventado pelo browser ou token compartilhado como prova
 de identidade. Os testes injetam uma política sintética apenas para verificar
 o encaminhamento; ela não vira configuração de produção.
 
+Cada rota exige o header `Origin` idêntico à origem HTTPS configurada. Não
+torne essa checagem opcional: o componente envia o header em todas as chamadas
+JSON, e uma requisição sem ele deve receber `403`.
+
 O adaptador deve ter esta semântica, usando o mecanismo de sessão já existente
 na aplicação parceira:
 

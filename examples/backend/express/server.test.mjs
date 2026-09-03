@@ -75,6 +75,14 @@ test("rejeita origem e campos extras antes de chamar o upstream", async () => {
     assert.equal(wrongOrigin.status, 403);
     assert.equal((await wrongOrigin.json()).error.code, "INVALID_ORIGIN");
 
+    const missingOrigin = await fetch(`${origin}/api/consulta-autofill/session`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ protocol_version: 1, document_type: "auto" }),
+    });
+    assert.equal(missingOrigin.status, 403);
+    assert.equal((await missingOrigin.json()).error.code, "INVALID_ORIGIN");
+
     const extraMetric = await fetch(`${origin}/api/consulta-autofill/metrics`, {
       method: "POST",
       headers: { "content-type": "application/json", origin: settings.partnerOrigin },

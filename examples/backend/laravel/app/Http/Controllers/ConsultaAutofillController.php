@@ -70,7 +70,7 @@ class ConsultaAutofillController extends Controller
     private function assertOrigin(Request $request): ?JsonResponse
     {
         $origin = $request->header('Origin');
-        if ($origin && $origin !== config('consulta-autofill.partner_origin')) {
+        if ($origin !== config('consulta-autofill.partner_origin')) {
             return $this->error('INVALID_ORIGIN', 'Origem não autorizada.', 403);
         }
         return null;

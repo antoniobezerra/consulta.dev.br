@@ -74,7 +74,7 @@ export function createApp(
 
   function requireSamePartnerOrigin(req, res, next) {
     const origin = req.get("origin");
-    if (origin && origin !== config.partnerOrigin) {
+    if (origin !== config.partnerOrigin) {
       const error = apiError("INVALID_ORIGIN", "Origem não autorizada.", 403);
       return res.status(error.status).json(error.body);
     }

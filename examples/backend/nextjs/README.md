@@ -13,6 +13,10 @@ usa timeout e rate limit local no upstream. Por segurança,
 `authorizePartnerAccess` retorna `false`: substitua-a por uma consulta à sua
 sessão server-side e à permissão/RBAC de cadastro antes de expor a rota. Não
 use `project_id`, QR, payload ou token estático vindo do browser como acesso.
-Em produção horizontal, substitua o limiter local por Redis ou equivalente.
+O limiter padrão usa apenas o bucket seguro `authenticated`; injete
+`rateKey` com um identificador opaco da sessão server-side para separar
+usuários. Nunca derive essa chave de `X-Forwarded-For`, `X-Real-IP` ou de
+qualquer campo enviado pelo browser. Em produção horizontal, substitua o
+limiter local por Redis ou equivalente.
 
 Leia também [docs/INTEGRATION.md](../../../docs/INTEGRATION.md).

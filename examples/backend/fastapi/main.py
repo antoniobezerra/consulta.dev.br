@@ -81,8 +81,7 @@ def error(code: str, message: str, status: int = 400) -> JSONResponse:
 
 
 def allowed_origin(request: Request) -> bool:
-    origin = request.headers.get("origin")
-    return not origin or origin == PARTNER_ORIGIN
+    return request.headers.get("origin") == PARTNER_ORIGIN
 
 
 def local_rate_limit(request: Request, scope: str, limit: int) -> bool:
