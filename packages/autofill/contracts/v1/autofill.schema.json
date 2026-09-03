@@ -107,6 +107,7 @@
         "project_id",
         "expires_at",
         "embed_url",
+        "bootstrap_url",
         "allowed_document_types",
         "photo_enabled"
       ],
@@ -116,6 +117,7 @@
         "project_id": { "$ref": "#/$defs/projectId" },
         "expires_at": { "type": "string", "format": "date-time" },
         "embed_url": { "type": "string", "format": "uri", "pattern": "^https://" },
+        "bootstrap_url": { "type": "string", "format": "uri", "pattern": "^https://" },
         "allowed_document_types": {
           "type": "array",
           "minItems": 1,
@@ -203,7 +205,6 @@
         "type": {
           "type": "string",
           "enum": [
-            "embed.ready",
             "parent.session",
             "embed.payload",
             "parent.result",
@@ -217,6 +218,18 @@
         "session_id": { "$ref": "#/$defs/sessionId" },
         "nonce": { "$ref": "#/$defs/nonce" },
         "payload": {}
+      }
+    },
+    "embedReadyMessage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["protocol", "version", "type", "project_id", "nonce"],
+      "properties": {
+        "protocol": { "const": "consulta-autofill" },
+        "version": { "$ref": "#/$defs/protocolVersion" },
+        "type": { "const": "embed.ready" },
+        "project_id": { "$ref": "#/$defs/projectId" },
+        "nonce": { "$ref": "#/$defs/nonce" }
       }
     }
   }

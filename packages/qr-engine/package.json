@@ -31,5 +31,8 @@
     "build": "vite build",
     "typecheck": "tsc --noEmit",
     "benchmark": "node ./scripts/benchmark-placeholder.mjs"
+  },
+  "dependencies": {
+    "zxing-wasm": "3.1.3"
   }
 }

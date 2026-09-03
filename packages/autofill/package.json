@@ -4,7 +4,7 @@
   "description": "Consulta Autofill web component for document-assisted form completion.",
   "license": "Apache-2.0",
   "type": "module",
-  "sideEffects": false,
+  "sideEffects": true,
   "files": ["dist", "contracts"],
   "main": "./dist/index.js",
   "module": "./dist/index.js",
@@ -13,6 +13,10 @@
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
+    },
+    "./protocol": {
+      "types": "./dist/protocol.d.ts",
+      "import": "./dist/protocol.js"
     },
     "./contracts/v1/autofill.schema.json": "./contracts/v1/autofill.schema.json"
   },

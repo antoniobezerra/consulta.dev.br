@@ -56,6 +56,8 @@ export interface AutofillSession {
   project_id: string;
   expires_at: string;
   embed_url: string;
+  /** Consulta endpoint that only the hosted iframe may call for bootstrap. */
+  bootstrap_url: string;
   allowed_document_types: AutofillDecodedDocumentType[];
   /** True only when the project policy permits image delivery and the user confirms it. */
   photo_enabled: boolean;
@@ -104,7 +106,6 @@ export interface AutofillDecodeSuccessResponse {
 export type AutofillDecodeResponse = AutofillDecodeSuccessResponse | AutofillErrorResponse;
 
 export const AUTOFILL_FRAME_MESSAGE_TYPES = [
-  "embed.ready",
   "parent.session",
   "embed.payload",
   "parent.result",
@@ -114,6 +115,15 @@ export const AUTOFILL_FRAME_MESSAGE_TYPES = [
   "embed.confirm",
 ] as const;
 export type AutofillFrameMessageType = (typeof AUTOFILL_FRAME_MESSAGE_TYPES)[number];
+
+/** Initial message sent over window.postMessage before a MessagePort exists. */
+export interface AutofillEmbedReadyMessage {
+  protocol: "consulta-autofill";
+  version: typeof AUTOFILL_PROTOCOL_VERSION;
+  type: "embed.ready";
+  project_id: string;
+  nonce: string;
+}
 
 /**
  * Every cross-origin message must also be validated against event.origin and
@@ -140,6 +150,18 @@ export function isAutofillFrameMessage(value: unknown): value is AutofillFrameMe
     AUTOFILL_FRAME_MESSAGE_TYPES.includes(message.type as AutofillFrameMessageType) &&
     typeof message.project_id === "string" &&
     typeof message.session_id === "string" &&
+    typeof message.nonce === "string"
+  );
+}
+
+export function isAutofillEmbedReadyMessage(value: unknown): value is AutofillEmbedReadyMessage {
+  if (!value || typeof value !== "object") return false;
+  const message = value as Partial<AutofillEmbedReadyMessage>;
+  return (
+    message.protocol === "consulta-autofill" &&
+    message.version === AUTOFILL_PROTOCOL_VERSION &&
+    message.type === "embed.ready" &&
+    typeof message.project_id === "string" &&
     typeof message.nonce === "string"
   );
 }

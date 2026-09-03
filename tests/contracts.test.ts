@@ -36,6 +36,7 @@ describe("Autofill v1 JSON Schema", () => {
           project_id: "pub_12345678",
           expires_at: "2026-09-03T12:00:00.000Z",
           embed_url: "https://embed.consulta.dev.br/v1",
+          bootstrap_url: "https://consulta.dev.br/api/v1/autofill/embed/bootstrap",
           allowed_document_types: ["cnh-e", "crlv-e"],
           photo_enabled: false,
         },

@@ -11,9 +11,12 @@ export default defineConfig({
   build: {
     emptyOutDir: true,
     lib: {
-      entry: resolve(import.meta.dirname, "src/index.ts"),
+      entry: {
+        index: resolve(import.meta.dirname, "src/index.ts"),
+        protocol: resolve(import.meta.dirname, "src/protocol.ts"),
+      },
       formats: ["es"],
-      fileName: "index",
+      fileName: (format, entryName) => `${entryName}.${format === "es" ? "js" : format}`,
     },
     sourcemap: true,
   },

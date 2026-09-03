@@ -4,6 +4,11 @@
   "private": true,
   "description": "Hosted Consulta Autofill embed shell.",
   "type": "module",
+  "dependencies": {
+    "@consulta-dev/autofill": "workspace:*",
+    "@consulta-dev/qr-engine": "workspace:*",
+    "pdfjs-dist": "6.3.289"
+  },
   "scripts": {
     "build": "vite build",
     "typecheck": "tsc --noEmit"
