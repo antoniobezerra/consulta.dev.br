@@ -8,6 +8,8 @@ test-results/
 .env.*
 !.env.example
 *.log
+__pycache__/
+*.py[cod]
 .qr-only-build/
 .release-artifacts/
 .DS_Store
