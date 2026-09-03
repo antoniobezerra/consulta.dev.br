@@ -48,6 +48,10 @@ Os três jobs que efetivamente publicam (`npm`, GitHub Release e CDN) usam o amb
 
 Cada release deverá publicar o mesmo artefato testado em npm, GitHub Release e CDN, junto com SHA-256, SBOM e proveniência quando disponíveis.
 
+As **immutable releases** do GitHub estão habilitadas neste repositório. Depois
+de publicada, uma release semântica não deve ser editada, ter assets trocados ou
+ser removida; corrija qualquer erro em uma nova versão.
+
 Antes de apontar `embed.consulta.dev.br`, siga o [contrato de deploy do shell](EMBED_DEPLOYMENT.md). A política `frame-ancestors` precisa ser calculada no servidor por projeto; um host estático não pode usar uma CSP permissiva como substituto.
 
 ## Publicação R2/CDN
