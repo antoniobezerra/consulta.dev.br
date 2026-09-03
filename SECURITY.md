@@ -2,7 +2,7 @@
 
 ## Reportar uma vulnerabilidade
 
-Não publique vulnerabilidades, payloads de documento ou provas de conceito contendo dados reais em issues públicas. Envie uma descrição mínima, passos reprodutíveis com dados sintéticos e impacto para o canal de segurança indicado no site `consulta.dev.br`.
+Não publique vulnerabilidades, payloads de documento ou provas de conceito contendo dados reais em issues públicas. Use o botão **Report a vulnerability** da aba Security deste repositório para abrir um relatório privado no GitHub. Se esse canal não estiver disponível, envie uma descrição mínima, passos reprodutíveis com dados sintéticos e impacto para o canal de segurança indicado no site `consulta.dev.br`.
 
 Inclua, quando possível:
 
