@@ -41,7 +41,7 @@ jobs:
       - run: pnpm typecheck
       - run: pnpm test
       - run: pnpm build
-      - run: pnpm exec playwright install --with-deps chromium firefox webkit
+      - run: pnpm exec playwright install --with-deps chromium firefox webkit msedge
       - run: pnpm test:e2e
       - run: CONSULTA_RELEASE_VERSION=${{ inputs.version }} pnpm release:prepare
       - run: pnpm release:verify

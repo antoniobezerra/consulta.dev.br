@@ -20,7 +20,14 @@ const mode = process.argv.find((argument) => argument.startsWith("--mode="))?.sl
 const fixtureScale = 16;
 const require = createRequire(import.meta.url);
 
-const browsers = { chromium, firefox, webkit };
+const browsers = {
+  chromium: { launcher: chromium },
+  firefox: { launcher: firefox },
+  webkit: { launcher: webkit },
+  // Edge is a Chromium channel, but this must launch the Microsoft Edge binary
+  // instead of treating the Chromium probe as evidence for Edge.
+  edge: { launcher: chromium, launchOptions: { channel: "msedge" } },
+};
 
 if (!Number.isFinite(maximumSlowdownPercent) || maximumSlowdownPercent < 0) {
   throw new Error("QR_ONLY_MAX_SLOWDOWN_PERCENT deve ser um número não negativo.");
@@ -123,7 +130,8 @@ try {
   const address = server.httpServer?.address();
   if (!address || typeof address === "string") throw new Error("Não foi possível determinar a porta do servidor de benchmark.");
   const origin = `http://127.0.0.1:${address.port}`;
-  browser = await browsers[browserName].launch({ headless: true });
+  const selectedBrowser = browsers[browserName];
+  browser = await selectedBrowser.launcher.launch({ headless: true, ...selectedBrowser.launchOptions });
   const page = await browser.newPage();
   await page.goto(`${origin}/dev/qr-benchmark.html`, { waitUntil: "networkidle" });
   const result = await page.evaluate(async ({ candidateModuleUrl, candidateWasmUrl, maximumSlowdown, probeMode }) => {

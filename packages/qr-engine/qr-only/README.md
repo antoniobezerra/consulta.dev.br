@@ -22,6 +22,7 @@ pnpm --filter @consulta-dev/qr-engine run qr-only:parity
 QR_ONLY_OUTPUT_DIR=/caminho/do/artefato pnpm --filter @consulta-dev/qr-engine run qr-only:benchmark
 QR_ONLY_OUTPUT_DIR=/caminho/do/artefato pnpm --filter @consulta-dev/qr-engine run qr-only:firefox
 QR_ONLY_OUTPUT_DIR=/caminho/do/artefato pnpm --filter @consulta-dev/qr-engine run qr-only:webkit
+QR_ONLY_OUTPUT_DIR=/caminho/do/artefato pnpm --filter @consulta-dev/qr-engine run qr-only:edge
 ```
 
 O build exige Docker Buildx e produz arquivos não versionados em `.qr-only-build/`. Ele se recusa a reutilizar uma pasta de saída não vazia: escolha outro diretório com `QR_ONLY_OUTPUT_DIR=/caminho/vazio` para não misturar artefatos de builds diferentes.
@@ -41,6 +42,8 @@ A paridade sintética não substitui o corpus VIO privado, o benchmark em navega
 `qr-only:firefox` reutiliza o mesmo servidor e artefato para um probe funcional no Firefox: baseline, candidato e Worker do embed precisam extrair exatamente os bytes do QR sintético. Ele não usa o limite de tempo do Chromium como critério de promoção, porque desempenho entre engines de navegador não é comparável; Safari, dispositivos móveis e o corpus privado continuam pendentes.
 
 `qr-only:webkit` executa o mesmo probe funcional no WebKit distribuído pelo Playwright. Isso amplia a detecção automática de incompatibilidades do motor do Safari, mas não é evidência de Safari real: a validação em Safari, iOS, dispositivos físicos e versões suportadas continua obrigatória antes de promoção.
+
+`qr-only:edge` usa o canal Microsoft Edge instalado no runner para o mesmo probe funcional. Ele verifica Edge de fato, não apenas o Chromium do Playwright, mas segue sem aplicar orçamento de desempenho entre navegadores. O teste em versões suportadas de Edge e em dispositivos móveis continua obrigatório antes de promoção.
 
 No CI, `qr-only:test` gera um QR sintético local, chama o artefato Emscripten
 real com pixels RGBA e confirma o payload bruto e o identificador de formato

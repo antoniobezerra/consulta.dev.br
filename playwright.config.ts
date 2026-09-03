@@ -1,5 +1,10 @@
 import { defineConfig, devices } from "@playwright/test";
 
+// Microsoft Edge is installed only in CI (or deliberately with this opt-in).
+// Keeping it opt-in locally avoids making a proprietary browser a prerequisite
+// for ordinary contributor test runs while ensuring the release gate uses it.
+const runEdge = process.env.CI === "true" || process.env.CONSULTA_E2E_EDGE === "true";
+
 export default defineConfig({
   testDir: "./e2e",
   timeout: 30_000,
@@ -23,5 +28,6 @@ export default defineConfig({
     { name: "chromium", use: { ...devices["Desktop Chrome"] } },
     { name: "firefox", use: { ...devices["Desktop Firefox"] } },
     { name: "webkit", use: { ...devices["Desktop Safari"] } },
+    ...(runEdge ? [{ name: "edge", use: { ...devices["Desktop Edge"], channel: "msedge" } }] : []),
   ],
 });
