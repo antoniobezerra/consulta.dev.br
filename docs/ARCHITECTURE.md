@@ -27,6 +27,8 @@ Mensagens nunca usam `targetOrigin: "*"`.
 - `embed.consulta.dev.br` entrega o iframe com políticas por projeto.
 - O parceiro expõe endpoints same-origin de sessão e decode.
 
+O [contrato de deploy do embed](EMBED_DEPLOYMENT.md) define como calcular a CSP dinâmica sem confiar em parâmetros controlados pelo navegador.
+
 ## QR Engine
 
 O contrato público do engine é `prepare()`, `scan()` e `dispose()`. O baseline é `zxing-wasm`; a versão QR-only baseada em ZXing-C++ só será promovida quando cumprir os gates de tamanho, desempenho, igualdade de bytes e memória definidos no plano privado.
