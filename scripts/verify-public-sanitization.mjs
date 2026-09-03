@@ -13,14 +13,18 @@ const secretPatterns = [
   { name: "chave privada", expression: /-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----/ },
 ];
 
-function trackedPaths() {
-  return execFileSync("git", ["ls-files", "-z"], {
+function publicCandidatePaths() {
+  // Include non-ignored working-tree candidates so a developer sees a problem
+  // before staging or pushing it. Ignored local .env files and build output
+  // stay outside this public-source check until explicitly added to Git.
+  const paths = execFileSync("git", ["ls-files", "--cached", "--others", "--exclude-standard", "-z"], {
     cwd: workspaceDirectory,
     encoding: "buffer",
   })
     .toString("utf8")
     .split("\0")
     .filter(Boolean);
+  return [...new Set(paths)];
 }
 
 function prohibitedPath(filePath) {
@@ -31,7 +35,8 @@ function prohibitedPath(filePath) {
 }
 
 const violations = [];
-for (const filePath of trackedPaths()) {
+const candidates = publicCandidatePaths();
+for (const filePath of candidates) {
   if (prohibitedPath(filePath)) {
     violations.push(`${filePath}: arquivo privado ou segredo não pode ser versionado`);
     continue;
@@ -51,4 +56,4 @@ if (violations.length) {
   throw new Error(`Sanitização pública falhou:\n${violations.join("\n")}`);
 }
 
-console.log(`Sanitização pública aprovada para ${trackedPaths().length} arquivos versionados.`);
+console.log(`Sanitização pública aprovada para ${candidates.length} arquivos públicos candidatos.`);
