@@ -33,7 +33,8 @@
     "benchmark": "node ./scripts/benchmark-placeholder.mjs",
     "qr-only:build": "node ./scripts/build-qr-only.mjs",
     "qr-only:verify": "node ./scripts/verify-qr-only.mjs",
-    "qr-only:test": "node ./scripts/test-qr-only-artifact.mjs"
+    "qr-only:test": "node ./scripts/test-qr-only-artifact.mjs",
+    "qr-only:parity": "node ./scripts/parity-qr-only.mjs"
   },
   "dependencies": {
     "zxing-wasm": "3.1.3"

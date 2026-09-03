@@ -15,6 +15,8 @@ O wrapper recebe somente pixels RGBA do canvas. Assim, JPG/PNG/WebP/PDF continua
 ```bash
 pnpm --filter @consulta-dev/qr-engine run qr-only:build
 pnpm --filter @consulta-dev/qr-engine run qr-only:verify
+pnpm --filter @consulta-dev/qr-engine run qr-only:test
+pnpm --filter @consulta-dev/qr-engine run qr-only:parity
 ```
 
 O build exige Docker Buildx e produz arquivos não versionados em `.qr-only-build/`. Ele se recusa a reutilizar uma pasta de saída não vazia: escolha outro diretório com `QR_ONLY_OUTPUT_DIR=/caminho/vazio` para não misturar artefatos de builds diferentes.
@@ -23,7 +25,9 @@ O estágio final do Docker é `scratch` e contém somente os três arquivos de
 saída. Isso impede que o exportador do Buildx copie o toolchain Emscripten
 inteiro para o artefato de CI.
 
-`qr-only:verify` confere hash, tamanho bruto, tamanho gzip e redução em relação ao baseline. A promoção ainda requer igualdade de bytes no corpus sintético e privado, benchmark no navegador, 100 ciclos de memória e a matriz de navegadores do runbook.
+`qr-only:verify` confere hash, tamanho bruto, tamanho gzip e redução em relação ao baseline. `qr-only:test` chama o leitor compilado de verdade para validar o contrato mínimo. `qr-only:parity` fornece três QRs públicos e sintéticos — ASCII, UTF-8 rotacionado e bytes binários invertidos — como os mesmos pixels RGBA para o baseline e para o artefato QR-only, e exige igualdade exata dos bytes retornados.
+
+A paridade sintética não substitui o corpus VIO privado, o benchmark em navegador, os 100 ciclos de memória nem a matriz de navegadores; ela é apenas um gate público, determinístico e reproduzível.
 
 No CI, `qr-only:test` gera um QR sintético local, chama o artefato Emscripten
 real com pixels RGBA e confirma o payload bruto e o identificador de formato
