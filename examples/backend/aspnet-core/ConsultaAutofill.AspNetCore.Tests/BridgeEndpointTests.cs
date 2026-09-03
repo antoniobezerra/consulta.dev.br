@@ -3,7 +3,6 @@ using System.Net.Http.Json;
 using System.Text.Json;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
-using Microsoft.Extensions.Configuration;
 using Xunit;
 
 namespace ConsultaAutofill.AspNetCore.Tests;
@@ -52,13 +51,30 @@ public sealed class BridgeEndpointTests : IClassFixture<BridgeFactory> {
 }
 
 public sealed class BridgeFactory : WebApplicationFactory<Program> {
+    private readonly Dictionary<string, string?> _originalEnvironment = new();
+
+    public BridgeFactory() {
+        SetEnvironment("CONSULTA_API_BASE_URL", "http://127.0.0.1:1");
+        SetEnvironment("CONSULTA_API_KEY", "test_server_key");
+        SetEnvironment("CONSULTA_PROJECT_ID", "pub_test_project");
+        SetEnvironment("CONSULTA_PARTNER_ORIGIN", "https://partner.example");
+    }
+
     protected override void ConfigureWebHost(IWebHostBuilder builder) {
         builder.UseEnvironment("Testing");
-        builder.ConfigureAppConfiguration(configuration => configuration.AddInMemoryCollection(new Dictionary<string, string?> {
-            ["CONSULTA_API_BASE_URL"] = "http://127.0.0.1:1",
-            ["CONSULTA_API_KEY"] = "test_server_key",
-            ["CONSULTA_PROJECT_ID"] = "pub_test_project",
-            ["CONSULTA_PARTNER_ORIGIN"] = "https://partner.example",
-        }));
+    }
+
+    protected override void Dispose(bool disposing) {
+        if (disposing) {
+            foreach (var (name, previousValue) in _originalEnvironment) {
+                Environment.SetEnvironmentVariable(name, previousValue);
+            }
+        }
+        base.Dispose(disposing);
+    }
+
+    private void SetEnvironment(string name, string value) {
+        _originalEnvironment[name] = Environment.GetEnvironmentVariable(name);
+        Environment.SetEnvironmentVariable(name, value);
     }
 }
