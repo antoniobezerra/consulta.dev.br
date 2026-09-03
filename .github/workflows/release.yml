@@ -34,6 +34,27 @@ jobs:
         with:
           ref: v${{ inputs.version }}
           fetch-depth: 0
+      - name: Verify release tag belongs to main
+        env:
+          RELEASE_VERSION: ${{ inputs.version }}
+        run: |
+          if ! [[ "$RELEASE_VERSION" =~ ^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(-[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$ ]]; then
+            echo "version must be a semver value without the v prefix" >&2
+            exit 1
+          fi
+          tag="v$RELEASE_VERSION"
+          expected="$(git rev-parse --verify --quiet "refs/tags/${tag}^{commit}")" || {
+            echo "approved tag ${tag} was not found" >&2
+            exit 1
+          }
+          if [[ "$(git rev-parse HEAD)" != "$expected" ]]; then
+            echo "checkout does not match ${tag}" >&2
+            exit 1
+          fi
+          if ! git merge-base --is-ancestor "$expected" origin/main; then
+            echo "${tag} must reference a commit reachable from main" >&2
+            exit 1
+          fi
       - uses: pnpm/action-setup@v6
         with:
           version: 11.5.0
@@ -63,6 +84,7 @@ jobs:
     needs: prepare
     if: inputs.publish_npm
     runs-on: ubuntu-24.04
+    environment: release
     permissions:
       contents: read
       id-token: write
@@ -85,6 +107,7 @@ jobs:
     needs: prepare
     if: inputs.publish_github_release
     runs-on: ubuntu-24.04
+    environment: release
     permissions:
       contents: write
     steps:
@@ -118,6 +141,7 @@ jobs:
     needs: prepare
     if: inputs.publish_cdn
     runs-on: ubuntu-24.04
+    environment: release
     permissions:
       contents: read
     steps:

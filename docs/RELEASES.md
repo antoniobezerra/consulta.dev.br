@@ -27,8 +27,10 @@ O QR-only experimental não entra na coleção: ele continua opt-in até o corpu
 
 A workflow manual **Release artifacts** exige que a tag `v<versão>` já exista. Ela reconstrói, testa, prepara e verifica a coleção antes de qualquer publicação. Por padrão, ela apenas retém o artefato do GitHub Actions por 14 dias.
 
+Os três jobs que efetivamente publicam (`npm`, GitHub Release e CDN) usam o ambiente GitHub `release`: ele só pode ser acionado a partir da `main` protegida e exige uma aprovação explícita antes de receber permissões de publicação. Antes de preparar qualquer artefato, a workflow confere que `v<versão>` existe, corresponde exatamente ao checkout e aponta para um commit alcançável pela `main`. Na configuração atual de mantenedor único, a autoaprovação permanece permitida para não bloquear uma release legítima; ao adicionar outro mantenedor, habilite a proibição de autoaprovação e use revisão independente.
+
 - `publish_npm=true` publica exatamente os tarballs verificados com `npm publish --provenance`, usando Trusted Publishing/OIDC. Antes disso, um administrador do escopo `@consulta-dev` deve cadastrar esse repositório/workflow como publisher confiável; não use token permanente.
-- `publish_github_release=true` cria ou anexa à GitHub Release da tag e envia os mesmos tarballs, manifest, checksums e SBOM.
+- `publish_github_release=true` cria a GitHub Release da tag e envia os mesmos tarballs, manifest, checksums e SBOM. Se a release ou um asset já existir, a execução falha; publique uma nova versão em vez de alterar a anterior.
 - `publish_cdn=true` publica exclusivamente os itens `cdn_assets` da coleção já verificada no R2 e faz smoke test pelo domínio público. Ele não altera aliases como `/v1/` e não usa `r2.dev`.
 
 Cada release deverá publicar o mesmo artefato testado em npm, GitHub Release e CDN, junto com SHA-256, SBOM e proveniência quando disponíveis.
