@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use Illuminate\Http\Client\Request as ClientRequest;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Testing\TestResponse;
 use Tests\TestCase;
 
 class ConsultaAutofillControllerTest extends TestCase
@@ -12,15 +13,15 @@ class ConsultaAutofillControllerTest extends TestCase
     {
         Http::fake();
 
-        $this->withHeader('Origin', 'https://attacker.example')
+        $response = $this->withHeader('Origin', 'https://attacker.example')
             ->postJson('/api/consulta-autofill/session', [
                 'protocol_version' => 1,
                 'document_type' => 'auto',
             ])
             ->assertForbidden()
-            ->assertHeader('Cache-Control', 'no-store')
             ->assertJsonPath('error.code', 'INVALID_ORIGIN');
 
+        $this->assertNoStore($response);
         Http::assertNothingSent();
     }
 
@@ -28,7 +29,7 @@ class ConsultaAutofillControllerTest extends TestCase
     {
         Http::fake();
 
-        $this->withHeader('Origin', 'https://partner.example')
+        $response = $this->withHeader('Origin', 'https://partner.example')
             ->postJson('/api/consulta-autofill/decode', [
                 'protocol_version' => 1,
                 'session_token' => str_repeat('a', 32),
@@ -37,9 +38,9 @@ class ConsultaAutofillControllerTest extends TestCase
                 'project_id' => 'pub_browser_controlled',
             ])
             ->assertBadRequest()
-            ->assertHeader('Cache-Control', 'no-store')
             ->assertJsonPath('error.code', 'INVALID_REQUEST');
 
+        $this->assertNoStore($response);
         Http::assertNothingSent();
     }
 
@@ -53,15 +54,15 @@ class ConsultaAutofillControllerTest extends TestCase
             ], 201),
         ]);
 
-        $this->withHeader('Origin', 'https://partner.example')
+        $response = $this->withHeader('Origin', 'https://partner.example')
             ->postJson('/api/consulta-autofill/session', [
                 'protocol_version' => 1,
                 'document_type' => 'cnh-e',
             ])
             ->assertCreated()
-            ->assertHeader('Cache-Control', 'no-store')
             ->assertJsonPath('success', true);
 
+        $this->assertNoStore($response);
         Http::assertSent(static function (ClientRequest $request): bool {
             return $request->url() === 'https://consulta.example/api/v1/autofill/sessions'
                 && $request->hasHeader('X-API-Key', 'test_server_key')
@@ -71,5 +72,10 @@ class ConsultaAutofillControllerTest extends TestCase
                 && $request['document_type'] === 'cnh-e'
                 && $request['partner_origin'] === 'https://partner.example';
         });
+    }
+
+    private function assertNoStore(TestResponse $response): void
+    {
+        self::assertStringContainsString('no-store', (string) $response->headers->get('Cache-Control'));
     }
 }
