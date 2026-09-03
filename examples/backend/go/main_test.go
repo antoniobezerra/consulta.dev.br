@@ -18,6 +18,8 @@ func testSettings(upstreamURL string) config {
 	}
 }
 
+func allowPartnerAccess(_ *http.Request) bool { return true }
+
 func TestSessionForwardsOnlyPinnedHeadersAndOrigin(t *testing.T) {
 	var receivedHeaders http.Header
 	var receivedBody map[string]any
@@ -35,7 +37,7 @@ func TestSessionForwardsOnlyPinnedHeadersAndOrigin(t *testing.T) {
 	}))
 	defer upstream.Close()
 
-	handler := partnerHandler(testSettings(upstream.URL), &rateLimiter{windows: map[string][]time.Time{}}, "session")
+	handler := partnerHandler(testSettings(upstream.URL), &rateLimiter{windows: map[string][]time.Time{}}, allowPartnerAccess, "session")
 	request := httptest.NewRequest(http.MethodPost, "/api/consulta-autofill/session", bytes.NewBufferString(`{"protocol_version":1,"document_type":"cnh-e"}`))
 	request.Header.Set("Content-Type", "application/json")
 	request.Header.Set("Origin", "https://partner.example")
@@ -61,7 +63,7 @@ func TestRejectsCrossOriginAndMetricFieldsBeforeUpstream(t *testing.T) {
 	settings := testSettings("http://127.0.0.1:1")
 	limiter := &rateLimiter{windows: map[string][]time.Time{}}
 
-	sessionHandler := partnerHandler(settings, limiter, "session")
+	sessionHandler := partnerHandler(settings, limiter, allowPartnerAccess, "session")
 	wrongOrigin := httptest.NewRequest(http.MethodPost, "/api/consulta-autofill/session", bytes.NewBufferString(`{"protocol_version":1,"document_type":"auto"}`))
 	wrongOrigin.Header.Set("Content-Type", "application/json")
 	wrongOrigin.Header.Set("Origin", "https://attacker.example")
@@ -71,7 +73,7 @@ func TestRejectsCrossOriginAndMetricFieldsBeforeUpstream(t *testing.T) {
 		t.Fatalf("expected origin rejection, got %d", wrongOriginResponse.Code)
 	}
 
-	metricHandler := partnerHandler(settings, limiter, "metrics")
+	metricHandler := partnerHandler(settings, limiter, allowPartnerAccess, "metrics")
 	extraMetric := httptest.NewRequest(http.MethodPost, "/api/consulta-autofill/metrics", bytes.NewBufferString(`{"protocol_version":1,"session_token":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","event":"filled","fields":{"cpf":"00000000000"}}`))
 	extraMetric.Header.Set("Content-Type", "application/json")
 	extraMetric.Header.Set("Origin", "https://partner.example")
@@ -79,5 +81,19 @@ func TestRejectsCrossOriginAndMetricFieldsBeforeUpstream(t *testing.T) {
 	metricHandler(extraMetricResponse, extraMetric)
 	if extraMetricResponse.Code != http.StatusBadRequest {
 		t.Fatalf("expected extra metric fields rejection, got %d", extraMetricResponse.Code)
+	}
+}
+
+func TestRejectsAnonymousRequestBeforeUpstream(t *testing.T) {
+	handler := partnerHandler(testSettings("http://127.0.0.1:1"), &rateLimiter{windows: map[string][]time.Time{}}, denyPartnerAccess, "session")
+	request := httptest.NewRequest(http.MethodPost, "/api/consulta-autofill/session", bytes.NewBufferString(`{"protocol_version":1,"document_type":"auto"}`))
+	request.Header.Set("Content-Type", "application/json")
+	request.Header.Set("Origin", "https://partner.example")
+	recorder := httptest.NewRecorder()
+
+	handler(recorder, request)
+
+	if recorder.Code != http.StatusUnauthorized {
+		t.Fatalf("expected anonymous request rejection, got %d: %s", recorder.Code, recorder.Body.String())
 	}
 }

@@ -32,7 +32,7 @@ test("encaminha sessão somente para o upstream e as credenciais fixadas no serv
       status: 201,
       headers: { "content-type": "application/json" },
     });
-  });
+  }, { authorize: async () => true });
 
   await withServer(app, async (origin) => {
     const response = await fetch(`${origin}/api/consulta-autofill/session`, {
@@ -64,7 +64,7 @@ test("rejeita origem e campos extras antes de chamar o upstream", async () => {
   const app = createApp(settings, async () => {
     calls += 1;
     throw new Error("upstream não deve ser chamado");
-  });
+  }, { authorize: async () => true });
 
   await withServer(app, async (origin) => {
     const wrongOrigin = await fetch(`${origin}/api/consulta-autofill/session`, {
@@ -87,6 +87,26 @@ test("rejeita origem e campos extras antes de chamar o upstream", async () => {
     });
     assert.equal(extraMetric.status, 400);
     assert.equal((await extraMetric.json()).error.code, "INVALID_REQUEST");
+  });
+
+  assert.equal(calls, 0);
+});
+
+test("fecha a ponte sem uma integração de autenticação e não chama o upstream", async () => {
+  let calls = 0;
+  const app = createApp(settings, async () => {
+    calls += 1;
+    throw new Error("upstream não deve ser chamado");
+  });
+
+  await withServer(app, async (origin) => {
+    const response = await fetch(`${origin}/api/consulta-autofill/session`, {
+      method: "POST",
+      headers: { "content-type": "application/json", origin: settings.partnerOrigin },
+      body: JSON.stringify({ protocol_version: 1, document_type: "auto" }),
+    });
+    assert.equal(response.status, 401);
+    assert.equal((await response.json()).error.code, "UNAUTHENTICATED");
   });
 
   assert.equal(calls, 0);

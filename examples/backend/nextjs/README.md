@@ -8,6 +8,11 @@ O diretório também inclui um teste do Route Handler com upstream sintético. E
 npm test
 ```
 
-O handler faz body limit, valida a origem exata, fixa o projeto no servidor e usa timeout no upstream. Conecte o comentário `assertPartnerAccess` à sessão/autorização do seu produto antes de produção.
+O handler faz body limit, valida a origem exata, fixa o projeto no servidor,
+usa timeout e rate limit local no upstream. Por segurança,
+`authorizePartnerAccess` retorna `false`: substitua-a por uma consulta à sua
+sessão server-side e à permissão/RBAC de cadastro antes de expor a rota. Não
+use `project_id`, QR, payload ou token estático vindo do browser como acesso.
+Em produção horizontal, substitua o limiter local por Redis ou equivalente.
 
 Leia também [docs/INTEGRATION.md](../../../docs/INTEGRATION.md).

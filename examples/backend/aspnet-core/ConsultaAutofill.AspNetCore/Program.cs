@@ -15,6 +15,9 @@ if (int.TryParse(builder.Configuration["PORT"], out var port) && port is > 0 and
 }
 builder.Services.AddSingleton(settings);
 builder.Services.AddSingleton<PartnerRateLimiter>();
+// Replace this fail-closed policy with an adapter to the partner application's
+// authenticated principal and RBAC rules before exposing the bridge.
+builder.Services.AddSingleton<IPartnerAccessPolicy, DenyPartnerAccessPolicy>();
 builder.Services.AddHttpClient<PartnerBridgeService>((_, client) => {
     client.BaseAddress = new Uri(settings.ApiBaseUrl);
     client.Timeout = TimeSpan.FromSeconds(10);
@@ -27,9 +30,10 @@ app.MapPost("/api/consulta-autofill/session", async (
     HttpResponse response,
     PartnerSettings options,
     PartnerRateLimiter limiter,
+    IPartnerAccessPolicy accessPolicy,
     PartnerBridgeService bridge,
     CancellationToken cancellationToken) => {
-    var guard = Guard(request, response, options, limiter, "session", 20);
+    var guard = Guard(request, response, options, limiter, accessPolicy, "session", 20);
     if (guard is not null) return guard;
     var input = await ReadStrictJsonAsync<SessionInput>(request, cancellationToken);
     if (input is null || input.ProtocolVersion != 1 || !ValidDocumentType(input.DocumentType)) {
@@ -48,9 +52,10 @@ app.MapPost("/api/consulta-autofill/decode", async (
     HttpResponse response,
     PartnerSettings options,
     PartnerRateLimiter limiter,
+    IPartnerAccessPolicy accessPolicy,
     PartnerBridgeService bridge,
     CancellationToken cancellationToken) => {
-    var guard = Guard(request, response, options, limiter, "decode", 60);
+    var guard = Guard(request, response, options, limiter, accessPolicy, "decode", 60);
     if (guard is not null) return guard;
     var input = await ReadStrictJsonAsync<DecodeInput>(request, cancellationToken);
     if (input is null || !ValidDecode(input)) {
@@ -70,9 +75,10 @@ app.MapPost("/api/consulta-autofill/metrics", async (
     HttpResponse response,
     PartnerSettings options,
     PartnerRateLimiter limiter,
+    IPartnerAccessPolicy accessPolicy,
     PartnerBridgeService bridge,
     CancellationToken cancellationToken) => {
-    var guard = Guard(request, response, options, limiter, "metrics", 180);
+    var guard = Guard(request, response, options, limiter, accessPolicy, "metrics", 180);
     if (guard is not null) return guard;
     var input = await ReadStrictJsonAsync<MetricInput>(request, cancellationToken, MaxMetricBodyBytes);
     if (input is null || !ValidMetric(input)) {
@@ -88,7 +94,7 @@ app.MapPost("/api/consulta-autofill/metrics", async (
 
 app.Run();
 
-static IResult? Guard(HttpRequest request, HttpResponse response, PartnerSettings options, PartnerRateLimiter limiter, string scope, int limit) {
+static IResult? Guard(HttpRequest request, HttpResponse response, PartnerSettings options, PartnerRateLimiter limiter, IPartnerAccessPolicy accessPolicy, string scope, int limit) {
     if (request.ContentLength is > MaxBodyBytes) {
         return Error(response, "INVALID_REQUEST", "A requisição Autofill é inválida.", StatusCodes.Status400BadRequest);
     }
@@ -96,7 +102,7 @@ static IResult? Guard(HttpRequest request, HttpResponse response, PartnerSetting
     if (!string.IsNullOrEmpty(origin) && !string.Equals(origin, options.PartnerOrigin, StringComparison.Ordinal)) {
         return Error(response, "INVALID_ORIGIN", "Origem não autorizada.", StatusCodes.Status403Forbidden);
     }
-    if (!RequirePartnerAccess(request)) {
+    if (!accessPolicy.HasAutofillAccess(request.HttpContext)) {
         return Error(response, "UNAUTHENTICATED", "Não autorizado.", StatusCodes.Status401Unauthorized);
     }
     var client = request.HttpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
@@ -104,12 +110,6 @@ static IResult? Guard(HttpRequest request, HttpResponse response, PartnerSetting
         return Error(response, "RATE_LIMITED", "Muitas solicitações; tente novamente em breve.", StatusCodes.Status429TooManyRequests);
     }
     return null;
-}
-
-static bool RequirePartnerAccess(HttpRequest request) {
-    // Conecte à sessão/RBAC do seu produto antes de produção. Nunca derive
-    // projeto ou credencial de atributos, query string ou corpo do browser.
-    return true;
 }
 
 static bool ValidDocumentType(string? value) => value is "auto" or "cnh-e" or "crlv-e";
@@ -230,6 +230,19 @@ public sealed class PartnerRateLimiter {
             return true;
         }
     }
+}
+
+/**
+ * Reads only a principal established by the partner's server-side
+ * authentication middleware. Browser fields, project ids and payloads are
+ * never an authorization signal. The shipped policy intentionally denies.
+ */
+public interface IPartnerAccessPolicy {
+    bool HasAutofillAccess(HttpContext context);
+}
+
+public sealed class DenyPartnerAccessPolicy : IPartnerAccessPolicy {
+    public bool HasAutofillAccess(HttpContext _context) => false;
 }
 
 public sealed class PartnerBridgeService(HttpClient client, PartnerSettings settings) {

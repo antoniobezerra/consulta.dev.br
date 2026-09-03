@@ -51,6 +51,15 @@ type rateLimiter struct {
 	windows map[string][]time.Time
 }
 
+// partnerAccessAuthorizer must read an identity established by the partner's
+// own server-side session middleware and enforce the appropriate RBAC scope.
+// It must never trust a public project id, QR payload, or client-side token.
+type partnerAccessAuthorizer func(*http.Request) bool
+
+func denyPartnerAccess(_ *http.Request) bool {
+	return false
+}
+
 func (r *rateLimiter) allow(key string, limit int) bool {
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -75,9 +84,11 @@ func main() {
 	settings := loadConfig()
 	limiter := &rateLimiter{windows: map[string][]time.Time{}}
 	mux := http.NewServeMux()
-	mux.HandleFunc("POST /api/consulta-autofill/session", partnerHandler(settings, limiter, "session"))
-	mux.HandleFunc("POST /api/consulta-autofill/decode", partnerHandler(settings, limiter, "decode"))
-	mux.HandleFunc("POST /api/consulta-autofill/metrics", partnerHandler(settings, limiter, "metrics"))
+	// Replace denyPartnerAccess with the partner application's established
+	// session/RBAC middleware before exposing this bridge to users.
+	mux.HandleFunc("POST /api/consulta-autofill/session", partnerHandler(settings, limiter, denyPartnerAccess, "session"))
+	mux.HandleFunc("POST /api/consulta-autofill/decode", partnerHandler(settings, limiter, denyPartnerAccess, "decode"))
+	mux.HandleFunc("POST /api/consulta-autofill/metrics", partnerHandler(settings, limiter, denyPartnerAccess, "metrics"))
 
 	port := os.Getenv("PORT")
 	if port == "" {
@@ -115,13 +126,13 @@ func loadConfig() config {
 	return settings
 }
 
-func partnerHandler(settings config, limiter *rateLimiter, action string) http.HandlerFunc {
+func partnerHandler(settings config, limiter *rateLimiter, authorize partnerAccessAuthorizer, action string) http.HandlerFunc {
 	return func(writer http.ResponseWriter, request *http.Request) {
 		if origin := request.Header.Get("Origin"); origin != "" && origin != settings.partnerOrigin {
 			writeError(writer, "INVALID_ORIGIN", "Origem não autorizada.", http.StatusForbidden)
 			return
 		}
-		if !requirePartnerAccess(request) {
+		if !authorize(request) {
 			writeError(writer, "UNAUTHENTICATED", "Não autorizado.", http.StatusUnauthorized)
 			return
 		}
@@ -160,11 +171,6 @@ func partnerHandler(settings config, limiter *rateLimiter, action string) http.H
 		}
 		forward(writer, request.Context(), settings, path, body)
 	}
-}
-
-func requirePartnerAccess(_ *http.Request) bool {
-	// TODO: conecte à sessão/RBAC do seu produto. Nunca escolha projeto por dado do browser.
-	return true
 }
 
 func decodeStrictJSON(writer http.ResponseWriter, request *http.Request, target any, maxBytes int64) bool {

@@ -21,6 +21,25 @@ POST /api/consulta-autofill/metrics  # opcional, recomendado
 O workflow **Backend examples** executa os sete exemplos contra upstreams
 sintéticos. Nenhum teste usa uma chave, QR, foto ou documento real.
 
+As pontes não vêm com bypass de autenticação: Next.js, Express, FastAPI, Go,
+Spring Boot e ASP.NET Core negam por padrão com `401` até que o parceiro
+conecte o adaptador à sua sessão server-side e ao escopo/RBAC de cadastro.
+Laravel usa o middleware `auth` nas rotas de produção. Não use `project-id`,
+QR, payload, header inventado pelo browser ou token compartilhado como prova
+de identidade. Os testes injetam uma política sintética apenas para verificar
+o encaminhamento; ela não vira configuração de produção.
+
+O adaptador deve ter esta semântica, usando o mecanismo de sessão já existente
+na aplicação parceira:
+
+```text
+principal = ler_sessao_server_side(request)
+permitir = principal autenticado && principal.tem_permissao("cadastro:escrever")
+```
+
+Ele deve falhar fechado quando a sessão, o provedor de identidade ou a regra de
+autorização estiver indisponível.
+
 `/metrics` aceita apenas `protocol_version`, `session_token` e um evento fixo;
 ela encaminha o funil sem PII ao painel Consulta. Os limites de taxa em memória
 são deliberadamente didáticos. Produção distribuída deve usar a

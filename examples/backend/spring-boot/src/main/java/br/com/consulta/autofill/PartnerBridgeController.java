@@ -26,12 +26,19 @@ class PartnerBridgeController {
   private final PartnerBridgeProperties properties;
   private final PartnerBridgeService bridge;
   private final LocalRateLimiter rateLimiter;
+  private final PartnerAccessPolicy accessPolicy;
 
-  PartnerBridgeController(ObjectMapper objectMapper, PartnerBridgeProperties properties, PartnerBridgeService bridge, LocalRateLimiter rateLimiter) {
+  PartnerBridgeController(
+      ObjectMapper objectMapper,
+      PartnerBridgeProperties properties,
+      PartnerBridgeService bridge,
+      LocalRateLimiter rateLimiter,
+      PartnerAccessPolicy accessPolicy) {
     this.strictObjectMapper = objectMapper.copy().enable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES);
     this.properties = properties;
     this.bridge = bridge;
     this.rateLimiter = rateLimiter;
+    this.accessPolicy = accessPolicy;
   }
 
   @PostMapping(value = "/session", consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
@@ -102,16 +109,10 @@ class PartnerBridgeController {
   private ResponseEntity<?> guard(String origin, HttpServletRequest request, String scope, int limit, byte[] body) {
     if (body.length > MAX_BODY_BYTES) return error("INVALID_REQUEST", "A requisição Autofill é inválida.", 400);
     if (origin != null && !origin.equals(properties.getPartnerOrigin())) return error("INVALID_ORIGIN", "Origem não autorizada.", 403);
-    if (!requirePartnerAccess(request)) return error("UNAUTHENTICATED", "Não autorizado.", 401);
+    if (!accessPolicy.hasAutofillAccess(request)) return error("UNAUTHENTICATED", "Não autorizado.", 401);
     String key = scope + ":" + request.getRemoteAddr();
     if (!rateLimiter.allow(key, limit)) return error("RATE_LIMITED", "Muitas solicitações; tente novamente em breve.", 429);
     return null;
-  }
-
-  private static boolean requirePartnerAccess(HttpServletRequest request) {
-    // Conecte à sessão/RBAC do seu produto antes de produção. Nunca escolha
-    // projeto ou credencial a partir de dados do browser.
-    return true;
   }
 
   private static boolean validDocumentType(String value) {

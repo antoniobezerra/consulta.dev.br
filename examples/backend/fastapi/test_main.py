@@ -60,7 +60,10 @@ class PartnerBridgeTests(unittest.IsolatedAsyncioTestCase):
                 headers={"Cache-Control": "no-store"},
             )
 
-        with patch.object(main, "forward", new=upstream):
+        async def allow_access(_request: main.Request) -> bool:
+            return True
+
+        with patch.object(main, "forward", new=upstream), patch.object(main, "require_partner_access", new=allow_access):
             response = await self.request(
                 "/api/consulta-autofill/session",
                 {"protocol_version": 1, "document_type": "cnh-e"},
@@ -86,7 +89,10 @@ class PartnerBridgeTests(unittest.IsolatedAsyncioTestCase):
         async def upstream(_path: str, _payload: dict[str, object]) -> main.JSONResponse:
             raise AssertionError("o upstream não deve ser chamado")
 
-        with patch.object(main, "forward", new=upstream):
+        async def allow_access(_request: main.Request) -> bool:
+            return True
+
+        with patch.object(main, "forward", new=upstream), patch.object(main, "require_partner_access", new=allow_access):
             wrong_origin = await self.request(
                 "/api/consulta-autofill/session",
                 {"protocol_version": 1, "document_type": "auto"},
@@ -106,6 +112,19 @@ class PartnerBridgeTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(wrong_origin.json()["error"]["code"], "INVALID_ORIGIN")
         self.assertEqual(extra_metric.status_code, 400)
         self.assertEqual(extra_metric.json()["error"]["code"], "INVALID_REQUEST")
+
+    async def test_rejects_anonymous_requests_before_upstream(self) -> None:
+        async def upstream(_path: str, _payload: dict[str, object]) -> main.JSONResponse:
+            raise AssertionError("o upstream não deve ser chamado")
+
+        with patch.object(main, "forward", new=upstream):
+            response = await self.request(
+                "/api/consulta-autofill/session",
+                {"protocol_version": 1, "document_type": "auto"},
+            )
+
+        self.assertEqual(response.status_code, 401)
+        self.assertEqual(response.json()["error"]["code"], "UNAUTHENTICATED")
 
     async def test_forward_sets_pinned_headers(self) -> None:
         CapturingAsyncClient.captured = {}

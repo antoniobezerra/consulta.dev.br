@@ -14,9 +14,10 @@ composer test
 ```
 
 Copie `config/consulta-autofill.php`, o controller e as três rotas para o seu
-projeto Laravel. As rotas de produção usam `auth` e `throttle`; conecte `auth`
-à autenticação/RBAC do seu produto e use rate limit compartilhado antes de
-executar múltiplas instâncias.
+projeto Laravel. As rotas de produção usam `auth` e `throttle`; configure o
+guard para a sessão/RBAC do seu produto e exija a permissão de cadastro antes
+de executar. Não aceite `project-id`, QR, payload ou token estático do browser
+como identidade; use rate limit compartilhado antes de múltiplas instâncias.
 
 O fixture Testbench cobre origem inválida, campo de browser não permitido e os
 headers/origem fixados no servidor contra um upstream sintético. Nenhum corpo

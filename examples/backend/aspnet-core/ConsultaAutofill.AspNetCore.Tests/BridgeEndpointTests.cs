@@ -3,6 +3,9 @@ using System.Net.Http.Json;
 using System.Text.Json;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Xunit;
 
 namespace ConsultaAutofill.AspNetCore.Tests;
@@ -67,6 +70,11 @@ public sealed class BridgeEndpointTests : IClassFixture<BridgeFactory> {
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
         Assert.Equal("INVALID_REQUEST", body.GetProperty("error").GetProperty("code").GetString());
     }
+
+    [Fact]
+    public void Shipped_access_policy_denies_until_the_partner_wires_authentication() {
+        Assert.False(new DenyPartnerAccessPolicy().HasAutofillAccess(new DefaultHttpContext()));
+    }
 }
 
 public sealed class BridgeFactory : WebApplicationFactory<Program> {
@@ -81,6 +89,10 @@ public sealed class BridgeFactory : WebApplicationFactory<Program> {
 
     protected override void ConfigureWebHost(IWebHostBuilder builder) {
         builder.UseEnvironment("Testing");
+        builder.ConfigureServices(services => {
+            services.RemoveAll<IPartnerAccessPolicy>();
+            services.AddSingleton<IPartnerAccessPolicy, AllowPartnerAccessPolicy>();
+        });
     }
 
     protected override void Dispose(bool disposing) {
@@ -96,4 +108,8 @@ public sealed class BridgeFactory : WebApplicationFactory<Program> {
         _originalEnvironment[name] = Environment.GetEnvironmentVariable(name);
         Environment.SetEnvironmentVariable(name, value);
     }
+}
+
+public sealed class AllowPartnerAccessPolicy : IPartnerAccessPolicy {
+    public bool HasAutofillAccess(HttpContext _context) => true;
 }

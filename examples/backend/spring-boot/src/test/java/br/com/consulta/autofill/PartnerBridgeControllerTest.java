@@ -1,5 +1,6 @@
 package br.com.consulta.autofill;
 
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyMap;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
@@ -12,6 +13,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.util.Map;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
@@ -35,6 +37,12 @@ class PartnerBridgeControllerTest {
   @Autowired private MockMvc mvc;
   @Autowired private ObjectMapper objectMapper;
   @MockBean private PartnerBridgeService bridge;
+  @MockBean private PartnerAccessPolicy accessPolicy;
+
+  @BeforeEach
+  void allowAuthenticatedFixture() {
+    when(accessPolicy.hasAutofillAccess(any())).thenReturn(true);
+  }
 
   @Test
   void rejectsAnUnexpectedOriginWithoutContactingTheUpstream() throws Exception {
@@ -91,6 +99,21 @@ class PartnerBridgeControllerTest {
         .andExpect(jsonPath("$.error.code").value("INVALID_REQUEST"));
 
     verify(bridge, never()).forward(eq("/api/v1/autofill/metrics"), anyMap());
+  }
+
+  @Test
+  void rejectsAnonymousRequestsBeforeContactingTheUpstream() throws Exception {
+    when(accessPolicy.hasAutofillAccess(any())).thenReturn(false);
+
+    mvc.perform(post("/api/consulta-autofill/session")
+            .contentType(MediaType.APPLICATION_JSON)
+            .header("Origin", "https://partner.example")
+            .content("{\"protocol_version\":1,\"document_type\":\"auto\"}"))
+        .andExpect(status().isUnauthorized())
+        .andExpect(header().string("Cache-Control", "no-store"))
+        .andExpect(jsonPath("$.error.code").value("UNAUTHENTICATED"));
+
+    verify(bridge, never()).forward(eq("/api/v1/autofill/sessions"), anyMap());
   }
 
   @TestConfiguration

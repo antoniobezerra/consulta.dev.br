@@ -26,6 +26,9 @@ do upstream, aplica rate limit local e não registra QR, token, foto, campos ou
 corpos. Os testes cobrem origem inválida, campo de browser não permitido e os
 headers configurados no servidor contra um `HttpMessageHandler` sintético.
 
-Conecte `RequirePartnerAccess` à autenticação/RBAC do seu produto e troque o
-rate limit em memória por armazenamento compartilhado antes de produção. Leia
-o [guia de integração](../../../docs/INTEGRATION.md).
+`DenyPartnerAccessPolicy` é registrada por padrão e responde `401`. Substitua
+o registro de `IPartnerAccessPolicy` por uma implementação que leia a
+autenticação/RBAC server-side e exija a permissão de cadastro do seu produto;
+não derive acesso de `project-id`, QR, payload ou token estático do browser.
+Troque também o rate limit em memória por armazenamento compartilhado antes de
+produção. Leia o [guia de integração](../../../docs/INTEGRATION.md).

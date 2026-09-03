@@ -2,6 +2,58 @@ export const runtime = "nodejs";
 
 const MAX_BODY_BYTES = 1_000_000;
 const MAX_METRIC_BODY_BYTES = 4_096;
+const RATE_LIMITS = { session: 20, decode: 60, metrics: 180 } as const;
+
+type Action = keyof typeof RATE_LIMITS;
+type Settings = ReturnType<typeof config>;
+type PartnerAccessVerifier = (request: Request) => boolean | Promise<boolean>;
+type LocalRateLimiter = {
+  allow(scope: Action, key: string, limit: number): boolean;
+};
+type Forwarder = (settings: Settings, path: string, body: unknown) => Promise<{ status: number; body: unknown }>;
+
+/**
+ * The bridge intentionally starts closed. Replace this function with the
+ * existing server-side session/RBAC check of the partner application before
+ * exporting the handler to users. Never authorize from browser-controlled
+ * fields, a project id, or a shared client token.
+ */
+export async function authorizePartnerAccess(request: Request): Promise<boolean> {
+  void request;
+  return false;
+}
+
+/** Small local guard for one process. Use a shared limiter in horizontal production. */
+export function createLocalRateLimiter(now = () => Date.now()): LocalRateLimiter {
+  const windows = new Map<string, number[]>();
+  return {
+    allow(scope, key, limit) {
+      const identifier = `${scope}:${key}`;
+      const current = now();
+      const cutoff = current - 60_000;
+      const values = (windows.get(identifier) || []).filter((value) => value > cutoff);
+      if (values.length >= limit) {
+        windows.set(identifier, values);
+        return false;
+      }
+      values.push(current);
+      windows.set(identifier, values);
+      return true;
+    },
+  };
+}
+
+function clientRateKey(request: Request): string {
+  // Only trust forwarded headers when the deployment's proxy overwrites them.
+  // A stable fallback keeps the sample safe on platforms that expose no IP.
+  const forwarded = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim();
+  const real = request.headers.get("x-real-ip")?.trim();
+  return (forwarded || real || "anonymous").slice(0, 128);
+}
+
+function isAction(value: string): value is Action {
+  return value === "session" || value === "decode" || value === "metrics";
+}
 
 function config() {
   const apiBaseUrl = (process.env.CONSULTA_API_BASE_URL || "https://consulta.dev.br").replace(/\/$/, "");
@@ -49,8 +101,7 @@ async function requestJson(request: Request, maxBytes = MAX_BODY_BYTES): Promise
   return JSON.parse(text) as unknown;
 }
 
-async function forward(path: string, body: unknown) {
-  const settings = config();
+async function forward(settings: Settings, path: string, body: unknown) {
   const response = await fetch(`${settings.apiBaseUrl}${path}`, {
     method: "POST",
     signal: AbortSignal.timeout(10_000),
@@ -65,49 +116,68 @@ async function forward(path: string, body: unknown) {
   return { status: response.status, body: await response.json().catch(() => null) };
 }
 
-export async function POST(request: Request, context: { params: Promise<{ action: string }> }) {
-  let settings: ReturnType<typeof config>;
-  try {
-    settings = config();
-  } catch {
-    return error("INTERNAL_ERROR", "Configuração do Autofill indisponível.", 500);
-  }
-  const origin = request.headers.get("origin");
-  if (origin && origin !== settings.partnerOrigin) return error("INVALID_ORIGIN", "Origem não autorizada.", 403);
-
-  // TODO: verifique aqui a sessão/ACL do usuário do seu produto.
-  // Nunca use project_id vindo do browser; o projeto é fixado nas variáveis de servidor.
-  const { action } = await context.params;
-  try {
-    let endpoint: string;
-    let upstreamBody: unknown;
-    if (action === "session") {
-      const body = await requestJson(request);
-      if (!validSessionBody(body)) return error("INVALID_REQUEST", "Sessão Autofill inválida.");
-      endpoint = "/api/v1/autofill/sessions";
-      upstreamBody = { ...body, partner_origin: settings.partnerOrigin };
-    } else if (action === "decode") {
-      const body = await requestJson(request);
-      if (!validDecodeBody(body)) return error("INVALID_REQUEST", "Decode Autofill inválido.");
-      endpoint = "/api/v1/autofill/decode";
-      upstreamBody = body;
-    } else if (action === "metrics") {
-      const body = await requestJson(request, MAX_METRIC_BODY_BYTES);
-      if (!validMetricBody(body)) return error("INVALID_REQUEST", "Métrica Autofill inválida.");
-      endpoint = "/api/v1/autofill/metrics";
-      upstreamBody = body;
-    } else {
-      return error("INVALID_REQUEST", "Ação Autofill não suportada.", 404);
+export function createAutofillPostHandler({
+  authorize = authorizePartnerAccess,
+  rateLimiter = createLocalRateLimiter(),
+  forwardRequest = forward,
+}: {
+  authorize?: PartnerAccessVerifier;
+  rateLimiter?: LocalRateLimiter;
+  forwardRequest?: Forwarder;
+} = {}) {
+  return async function POST(request: Request, context: { params: Promise<{ action: string }> }) {
+    let settings: Settings;
+    try {
+      settings = config();
+    } catch {
+      return error("INTERNAL_ERROR", "Configuração do Autofill indisponível.", 500);
     }
-    const upstream = await forward(endpoint, upstreamBody);
-    return Response.json(upstream.body || { success: false, error: { code: "UPSTREAM_UNAVAILABLE", message: "Serviço indisponível.", retryable: true }, request_id: "partner_local" }, {
-      status: upstream.body ? upstream.status : 503,
-      headers: { "Cache-Control": "no-store" },
-    });
-  } catch (cause) {
-    // Não logue request body, QR, token, imagem, foto ou campos.
-    if (cause instanceof Error && cause.message === "PAYLOAD_TOO_LARGE") return error("INVALID_REQUEST", "Payload muito grande.", 413);
-    if (cause instanceof SyntaxError) return error("INVALID_REQUEST", "JSON inválido.");
-    return error("UPSTREAM_UNAVAILABLE", "Serviço temporariamente indisponível.", 503);
-  }
+    const origin = request.headers.get("origin");
+    if (origin && origin !== settings.partnerOrigin) return error("INVALID_ORIGIN", "Origem não autorizada.", 403);
+
+    const { action } = await context.params;
+    if (!isAction(action)) return error("INVALID_REQUEST", "Ação Autofill não suportada.", 404);
+    try {
+      if (!await authorize(request)) return error("UNAUTHENTICATED", "Não autorizado.", 401);
+    } catch {
+      // Do not disclose session-provider errors to an unauthenticated browser.
+      return error("UNAUTHENTICATED", "Não autorizado.", 401);
+    }
+    if (!rateLimiter.allow(action, clientRateKey(request), RATE_LIMITS[action])) {
+      return error("RATE_LIMITED", "Muitas solicitações; tente novamente em breve.", 429);
+    }
+
+    try {
+      let endpoint: string;
+      let upstreamBody: unknown;
+      if (action === "session") {
+        const body = await requestJson(request);
+        if (!validSessionBody(body)) return error("INVALID_REQUEST", "Sessão Autofill inválida.");
+        endpoint = "/api/v1/autofill/sessions";
+        upstreamBody = { ...body, partner_origin: settings.partnerOrigin };
+      } else if (action === "decode") {
+        const body = await requestJson(request);
+        if (!validDecodeBody(body)) return error("INVALID_REQUEST", "Decode Autofill inválido.");
+        endpoint = "/api/v1/autofill/decode";
+        upstreamBody = body;
+      } else {
+        const body = await requestJson(request, MAX_METRIC_BODY_BYTES);
+        if (!validMetricBody(body)) return error("INVALID_REQUEST", "Métrica Autofill inválida.");
+        endpoint = "/api/v1/autofill/metrics";
+        upstreamBody = body;
+      }
+      const upstream = await forwardRequest(settings, endpoint, upstreamBody);
+      return Response.json(upstream.body || { success: false, error: { code: "UPSTREAM_UNAVAILABLE", message: "Serviço indisponível.", retryable: true }, request_id: "partner_local" }, {
+        status: upstream.body ? upstream.status : 503,
+        headers: { "Cache-Control": "no-store" },
+      });
+    } catch (cause) {
+      // Não logue request body, QR, token, imagem, foto ou campos.
+      if (cause instanceof Error && cause.message === "PAYLOAD_TOO_LARGE") return error("INVALID_REQUEST", "Payload muito grande.", 413);
+      if (cause instanceof SyntaxError) return error("INVALID_REQUEST", "JSON inválido.");
+      return error("UPSTREAM_UNAVAILABLE", "Serviço temporariamente indisponível.", 503);
+    }
+  };
 }
+
+export const POST = createAutofillPostHandler();

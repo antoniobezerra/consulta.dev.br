@@ -16,8 +16,10 @@ npm test
 
 Exponha o componente com `endpoint="/api/consulta-autofill"` e, para o funil
 sem PII, `metrics-endpoint="/api/consulta-autofill/metrics"`. Antes de
-produção, conecte `requirePartnerAccess` à autenticação/autorização do seu
-produto e substitua o rate limit em memória por Redis ou equivalente
+produção, passe a sua verificação de sessão/RBAC server-side para a opção
+`authorize` de `createApp`; a política padrão nega tudo com `401`. Não derive
+acesso de `project-id`, QR, payload ou token estático enviado pelo browser.
+Substitua também o rate limit em memória por Redis ou equivalente
 compartilhado.
 
 O exemplo não registra corpo de request/response, QR, token, foto ou campos. Consulte [a integração completa](../../../docs/INTEGRATION.md).

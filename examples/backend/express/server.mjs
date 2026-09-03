@@ -42,17 +42,35 @@ function apiError(code, message, status = 400) {
   return { status, body: { success: false, error: { code, message, retryable: status >= 500 }, request_id: "partner_local" } };
 }
 
-function requirePartnerAccess(_req, _res, next) {
-  // Conecte à sessão/ACL do seu produto antes de liberar o Autofill.
-  // Não use project_id enviado pelo browser para decidir acesso ou credencial.
-  return next();
+/**
+ * The bridge is intentionally closed until the partner wires its existing
+ * server-side session/RBAC middleware here. Never decide access from browser
+ * fields, a public project id, or a shared client token.
+ */
+export async function authorizePartnerAccess(req) {
+  void req;
+  return false;
 }
 
 /** Creates a bridge app without binding a network port, so the same handler is testable. */
-export function createApp(config = loadConfig(), fetchImplementation = globalThis.fetch) {
+export function createApp(
+  config = loadConfig(),
+  fetchImplementation = globalThis.fetch,
+  { authorize = authorizePartnerAccess } = {},
+) {
   const app = express();
   app.disable("x-powered-by");
   app.use(express.json({ limit: "1mb", type: "application/json" }));
+
+  async function requirePartnerAccess(req, res, next) {
+    try {
+      if (await authorize(req)) return next();
+    } catch {
+      // An unavailable identity provider must not open the bridge.
+    }
+    const error = apiError("UNAUTHENTICATED", "Não autorizado.", 401);
+    return res.status(error.status).json(error.body);
+  }
 
   function requireSamePartnerOrigin(req, res, next) {
     const origin = req.get("origin");

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { POST } from "../app/api/consulta-autofill/[action]/route.ts";
+import { POST, createAutofillPostHandler } from "../app/api/consulta-autofill/[action]/route.ts";
 
 const environment = {
   CONSULTA_API_BASE_URL: "https://consulta.example",
@@ -47,7 +47,8 @@ test("encaminha sessão apenas para o destino, projeto e origem fixados no servi
       });
     };
     try {
-      const response = await POST(request("session", { protocol_version: 1, document_type: "cnh-e" }), context("session"));
+      const handler = createAutofillPostHandler({ authorize: async () => true });
+      const response = await handler(request("session", { protocol_version: 1, document_type: "cnh-e" }), context("session"));
       assert.equal(response.status, 201);
       assert.equal(response.headers.get("cache-control"), "no-store");
       assert.equal((await response.json()).success, true);
@@ -95,11 +96,60 @@ test("rejeita origem e campos de métrica extras antes do upstream", async () =>
         }),
         context("metrics"),
       );
-      assert.equal(extraMetric.status, 400);
-      assert.equal((await extraMetric.json()).error.code, "INVALID_REQUEST");
+      assert.equal(extraMetric.status, 401);
+
+      const authorizedHandler = createAutofillPostHandler({ authorize: async () => true });
+      const authorizedExtraMetric = await authorizedHandler(
+        request("metrics", {
+          protocol_version: 1,
+          session_token: sessionToken,
+          event: "filled",
+          fields: { cpf: "00000000000" },
+        }),
+        context("metrics"),
+      );
+      assert.equal(authorizedExtraMetric.status, 400);
+      assert.equal((await authorizedExtraMetric.json()).error.code, "INVALID_REQUEST");
       assert.equal(calls, 0);
     } finally {
       globalThis.fetch = originalFetch;
     }
+  });
+});
+
+test("fecha a ponte sem uma integração de autenticação e não chama o upstream", async () => {
+  await withEnvironment(async () => {
+    const originalFetch = globalThis.fetch;
+    let calls = 0;
+    globalThis.fetch = async () => {
+      calls += 1;
+      throw new Error("upstream não deve ser chamado");
+    };
+    try {
+      const response = await POST(request("session", { protocol_version: 1, document_type: "auto" }), context("session"));
+      assert.equal(response.status, 401);
+      assert.equal((await response.json()).error.code, "UNAUTHENTICATED");
+      assert.equal(calls, 0);
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+  });
+});
+
+test("limita a solicitação autorizada antes do upstream", async () => {
+  await withEnvironment(async () => {
+    let calls = 0;
+    const handler = createAutofillPostHandler({
+      authorize: async () => true,
+      rateLimiter: { allow: () => false },
+      forwardRequest: async () => {
+        calls += 1;
+        throw new Error("upstream não deve ser chamado");
+      },
+    });
+    const response = await handler(request("session", { protocol_version: 1, document_type: "auto" }), context("session"));
+    assert.equal(response.status, 429);
+    assert.equal((await response.json()).error.code, "RATE_LIMITED");
+    assert.equal(calls, 0);
   });
 });

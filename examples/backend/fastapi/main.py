@@ -135,8 +135,10 @@ async def forward(path: str, payload: dict) -> JSONResponse:
 
 
 async def require_partner_access(_request: Request) -> bool:
-    # Substitua por sessão, RBAC e escopo de cadastro do seu produto.
-    return True
+    # Conecte à sessão/RBAC server-side do seu produto e exija a permissão de
+    # cadastro adequada. O exemplo nega por padrão para nunca virar proxy
+    # autenticado apenas por project_id, payload ou token vindo do browser.
+    return False
 
 
 @app.post("/api/consulta-autofill/session")

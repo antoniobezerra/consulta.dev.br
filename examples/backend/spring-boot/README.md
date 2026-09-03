@@ -26,6 +26,9 @@ local e não registra QR, token, foto, campos ou corpo do upstream. Os testes
 cobrem origem inválida, campos não permitidos, a origem fixada na sessão e os
 headers autenticados do upstream simulado.
 
-Substitua `requirePartnerAccess` pela sessão/RBAC do seu produto e o rate limit
-em memória por armazenamento compartilhado antes de produção. Consulte o
-[guia de integração](../../../docs/INTEGRATION.md).
+`PartnerBridgeSecurityConfiguration` registra uma `PartnerAccessPolicy` que
+nega por padrão. Registre sua própria implementação usando a sessão/RBAC
+server-side e a permissão de cadastro antes de produção; não use `project-id`,
+QR, payload ou token estático do browser como acesso. Troque também o rate
+limit em memória por armazenamento compartilhado. Consulte o [guia de
+integração](../../../docs/INTEGRATION.md).

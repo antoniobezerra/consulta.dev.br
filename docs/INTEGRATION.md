@@ -28,6 +28,13 @@ POST /api/consulta-autofill/metrics  # opcional, recomendado
 
 Cada exemplo em [`examples/backend`](../examples/backend) implementa essa ponte para uma stack específica.
 
+Antes de ativar qualquer rota, conecte-a à sessão server-side e ao escopo/RBAC
+de cadastro do seu produto. Os exemplos de Next.js, Express, FastAPI, Go,
+Spring Boot e ASP.NET Core saem deliberadamente em modo fail-closed e retornam
+`401` até essa política ser fornecida; Laravel aplica `auth` nas rotas de
+produção. Não use `project-id`, QR, payload, header inventado pelo browser ou
+token compartilhado como prova de identidade.
+
 ## 2. Adicione o componente ao formulário
 
 Quando o pacote estiver publicado, carregue uma versão exata pelo npm ou pelo CDN oficial. Para desenvolvimento, importe o build local do monorepo. Em produção via CDN, use o arquivo e o `integrity` registrados no `release-manifest.json` da mesma release; não use aliases mutáveis nem uma URL de branch.
