@@ -33,19 +33,18 @@ o equivalente a:
 
 ```http
 Cache-Control: private, no-store
-Content-Security-Policy: default-src 'none'; base-uri 'none'; form-action 'none'; object-src 'none'; frame-src 'none'; frame-ancestors https://cadastro.exemplo.com https://staging.exemplo.com; script-src 'self' https://cdn.consulta.dev.br; style-src 'self' 'unsafe-inline'; connect-src 'self' https://consulta.dev.br https://cdn.consulta.dev.br; img-src 'self' blob: data:; media-src 'self' blob:; worker-src 'self' https://cdn.consulta.dev.br; manifest-src 'self'
+Content-Security-Policy: default-src 'none'; base-uri 'none'; form-action 'none'; object-src 'none'; frame-src 'none'; frame-ancestors https://cadastro.exemplo.com https://staging.exemplo.com; script-src 'self' https://cdn.consulta.dev.br; style-src 'self' https://cdn.consulta.dev.br; connect-src 'self' https://consulta.dev.br https://cdn.consulta.dev.br; img-src 'self' blob: data:; media-src 'self' blob:; worker-src 'self' https://cdn.consulta.dev.br; manifest-src 'self'
 Permissions-Policy: camera=(self)
 Referrer-Policy: no-referrer
 X-Content-Type-Options: nosniff
 ```
 
-Adapte a lista de `script-src`, `connect-src` e `worker-src` somente aos
-domínios versionados realmente usados no release. O Worker do PDF e o WASM
-precisam ser entregues por essa allowlist; nunca habilite `unsafe-eval` ou `*`
-como atalho. A implementação atual gera um bloco de estilo controlado pelo
-próprio embed, portanto o único `unsafe-inline` temporariamente aceitável é em
-`style-src`. Extraia-o para CSS versionado antes da disponibilidade geral e
-remova essa exceção; `script-src` jamais pode recebê-la.
+Adapte a lista de `script-src`, `style-src`, `connect-src` e `worker-src`
+somente aos domínios versionados realmente usados no release. O Worker do PDF,
+o WASM e a folha de estilos precisam ser entregues por essa allowlist; nunca
+habilite `unsafe-eval`, `unsafe-inline` ou `*` como atalho. O CSS do embed é
+emitido como asset estático versionado e `script-src` jamais pode receber uma
+exceção inline.
 
 O parceiro também precisa permitir o iframe na página pai:
 
@@ -87,9 +86,8 @@ Antes de liberar um ambiente, confirme:
    completar o bootstrap; em nenhum caso recebe câmera ou decode.
 6. O HTML e o alias não ficam em cache com headers de outro projeto.
 7. Os assets entregues pelo CDN correspondem ao manifesto SHA-256 da release.
-8. Enquanto o CSS ainda for injetado pelo embed, `unsafe-inline` aparece apenas
-   em `style-src`, nunca em `script-src`; a remoção dessa exceção continua gate
-   obrigatório antes da disponibilidade geral.
+8. O CSS vem do asset versionado e a CSP não contém `unsafe-inline`,
+   `unsafe-eval` ou `*`.
 
 Registre a evidência desses oito itens no release e no runbook privado. Sem o
 item 1, o Autofill permanece em beta allowlisted.
