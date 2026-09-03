@@ -17,6 +17,11 @@ on:
         required: true
         default: false
         type: boolean
+      publish_cdn:
+        description: Publicar os assets imutáveis verificados no R2 e validar o domínio público do CDN
+        required: true
+        default: false
+        type: boolean
 
 jobs:
   prepare:
@@ -104,3 +109,36 @@ jobs:
       - run: find release-artifacts/cdn -type f -print0 | xargs -0 gh release upload "v${{ inputs.version }}" --clobber
         env:
           GH_TOKEN: ${{ github.token }}
+
+  publish-cdn:
+    name: Publish verified immutable CDN assets
+    needs: prepare
+    if: inputs.publish_cdn
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: v${{ inputs.version }}
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.5.0
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - uses: actions/download-artifact@v4
+        with:
+          name: consulta-release-${{ inputs.version }}
+          path: release-artifacts
+      - run: CONSULTA_RELEASE_OUTPUT_DIR=release-artifacts pnpm release:verify
+      - run: CONSULTA_RELEASE_OUTPUT_DIR=release-artifacts pnpm release:publish-cdn
+        env:
+          CONSULTA_R2_ACCOUNT_ID: ${{ vars.CONSULTA_R2_ACCOUNT_ID }}
+          CONSULTA_R2_BUCKET: ${{ vars.CONSULTA_R2_BUCKET }}
+          CONSULTA_CDN_PUBLIC_BASE_URL: ${{ vars.CONSULTA_CDN_PUBLIC_BASE_URL }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.CONSULTA_R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.CONSULTA_R2_SECRET_ACCESS_KEY }}
+          AWS_SESSION_TOKEN: ${{ secrets.CONSULTA_R2_SESSION_TOKEN }}

@@ -20,6 +20,7 @@
     "benchmark": "pnpm --filter @consulta-dev/qr-engine run benchmark",
     "release:prepare": "node ./scripts/prepare-release-artifacts.mjs",
     "release:verify": "node ./scripts/verify-release-artifacts.mjs",
+    "release:publish-cdn": "node ./scripts/publish-cdn-release.mjs",
     "changeset": "changeset",
     "version-packages": "changeset version",
     "release": "pnpm build && changeset publish"
@@ -31,6 +32,7 @@
     "@types/node": "^26.4.1",
     "ajv": "^8.20.0",
     "ajv-formats": "^3.0.1",
+    "aws4fetch": "1.0.20",
     "eslint": "^10.9.1",
     "globals": "^17.12.0",
     "typescript": "^6.0.3",

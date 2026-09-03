@@ -29,8 +29,35 @@ A workflow manual **Release artifacts** exige que a tag `v<versão>` já exista.
 
 - `publish_npm=true` publica exatamente os tarballs verificados com `npm publish --provenance`, usando Trusted Publishing/OIDC. Antes disso, um administrador do escopo `@consulta-dev` deve cadastrar esse repositório/workflow como publisher confiável; não use token permanente.
 - `publish_github_release=true` cria ou anexa à GitHub Release da tag e envia os mesmos tarballs, manifest, checksums e SBOM.
-- A cópia ao R2/CDN permanece uma configuração externa pendente, porque as credenciais e o domínio `cdn.consulta.dev.br` não pertencem ao repositório. Faça upload somente dos arquivos já verificados, preserve nomes versionados, use `Cache-Control: public, max-age=31536000, immutable` para versões exatas e só mova o alias `/v1/` depois de um smoke test. Nunca use `r2.dev` em produção.
+- `publish_cdn=true` publica exclusivamente os itens `cdn_assets` da coleção já verificada no R2 e faz smoke test pelo domínio público. Ele não altera aliases como `/v1/` e não usa `r2.dev`.
 
 Cada release deverá publicar o mesmo artefato testado em npm, GitHub Release e CDN, junto com SHA-256, SBOM e proveniência quando disponíveis.
 
 Antes de apontar `embed.consulta.dev.br`, siga o [contrato de deploy do shell](EMBED_DEPLOYMENT.md). A política `frame-ancestors` precisa ser calculada no servidor por projeto; um host estático não pode usar uma CSP permissiva como substituto.
+
+## Publicação R2/CDN
+
+O job manual **Publish verified immutable CDN assets** só executa quando `publish_cdn=true` for selecionado na workflow **Release artifacts**. Ele baixa o mesmo artefato preparado para npm/GitHub Release, repete `release:verify` e usa a API S3 compatível do R2 para publicar somente caminhos de versão exata, como `embed/v1.0.0/assets/consulta-embed.js`.
+
+Cada `PUT` usa `If-None-Match: *`, `Content-Type`, `Content-MD5`, o cache imutável e metadados de release/SHA-256. Portanto, uma chave já existente não é sobrescrita: uma nova execução só prossegue se o objeto existente tiver exatamente os bytes e metadados esperados. Em seguida, o job lê cada objeto do R2 e do domínio público, confere bytes, `Content-Type`, `Cache-Control` e CORS. Uma falha deixa a versão sem promoção; não regrave nem delete a versão — publique uma nova versão semver.
+
+Antes da primeira execução, configure a infraestrutura fora deste repositório:
+
+- Crie um bucket R2 exclusivo para os assets públicos e conecte o domínio `https://cdn.consulta.dev.br/` a ele. Não exponha `r2.dev`.
+- Configure CORS do bucket para `GET` e `HEAD` de qualquer origem (`Access-Control-Allow-Origin: *`); o shell carrega JS, CSS e WASM versionados de outra origem.
+- Crie uma credencial S3 do R2 com **Object Read & Write** restrita a esse único bucket. O job precisa de leitura para a verificação posterior; não use um token REST administrativo do Cloudflare. Prefira credenciais temporárias e de menor escopo quando houver um emissor seguro.
+- Cadastre as GitHub Actions variables `CONSULTA_R2_ACCOUNT_ID`, `CONSULTA_R2_BUCKET` e `CONSULTA_CDN_PUBLIC_BASE_URL=https://cdn.consulta.dev.br/`.
+- Cadastre os GitHub Actions secrets `CONSULTA_R2_ACCESS_KEY_ID`, `CONSULTA_R2_SECRET_ACCESS_KEY` e, apenas para credenciais temporárias, `CONSULTA_R2_SESSION_TOKEN`.
+
+Para ensaiar uma coleção local sem tocar no R2, prepare os artefatos e execute o publicador com `--dry-run`. O comando ainda exige os três valores de destino para validar a configuração, mas não exige credenciais S3 nem faz rede:
+
+```bash
+CONSULTA_RELEASE_VERSION=1.0.0 pnpm release:prepare
+CONSULTA_RELEASE_OUTPUT_DIR=.release-artifacts \
+CONSULTA_R2_ACCOUNT_ID=0123456789abcdef0123456789abcdef \
+CONSULTA_R2_BUCKET=consulta-autofill-assets \
+CONSULTA_CDN_PUBLIC_BASE_URL=https://cdn.example.test/ \
+pnpm release:publish-cdn -- --dry-run
+```
+
+Somente depois de todos os smoke tests use a configuração de entrega para apontar um consumidor a uma versão exata. A eventual movimentação controlada de um alias `/v1/` é uma mudança de infraestrutura separada, revisada e reversível; o publicador não tem permissão para realizá-la.
