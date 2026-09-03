@@ -1,0 +1,106 @@
+name: Release artifacts
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Semver da tag aprovada, sem o prefixo v
+        required: true
+        type: string
+      publish_npm:
+        description: Publicar os tarballs verificados no npm por Trusted Publishing/OIDC
+        required: true
+        default: false
+        type: boolean
+      publish_github_release:
+        description: Criar GitHub Release e anexar a coleção verificada
+        required: true
+        default: false
+        type: boolean
+
+jobs:
+  prepare:
+    name: Prepare one verified collection
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: v${{ inputs.version }}
+          fetch-depth: 0
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.5.0
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm lint
+      - run: pnpm typecheck
+      - run: pnpm test
+      - run: pnpm build
+      - run: pnpm exec playwright install --with-deps chromium firefox webkit
+      - run: pnpm test:e2e
+      - run: CONSULTA_RELEASE_VERSION=${{ inputs.version }} pnpm release:prepare
+      - run: pnpm release:verify
+      - uses: actions/upload-artifact@v4
+        with:
+          name: consulta-release-${{ inputs.version }}
+          path: .release-artifacts
+          if-no-files-found: error
+          retention-days: 14
+
+  publish-npm:
+    name: Publish verified npm tarballs
+    needs: prepare
+    if: inputs.publish_npm
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: v${{ inputs.version }}
+      - uses: actions/download-artifact@v4
+        with:
+          name: consulta-release-${{ inputs.version }}
+          path: release-artifacts
+      - run: CONSULTA_RELEASE_OUTPUT_DIR=release-artifacts node scripts/verify-release-artifacts.mjs
+      - run: |
+          for archive in release-artifacts/packages/*.tgz; do
+            npm publish "$archive" --access public --provenance
+          done
+
+  publish-github-release:
+    name: Publish verified GitHub Release
+    needs: prepare
+    if: inputs.publish_github_release
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: v${{ inputs.version }}
+      - uses: actions/download-artifact@v4
+        with:
+          name: consulta-release-${{ inputs.version }}
+          path: release-artifacts
+      - run: CONSULTA_RELEASE_OUTPUT_DIR=release-artifacts node scripts/verify-release-artifacts.mjs
+      - run: >-
+          gh release create "v${{ inputs.version }}"
+          --verify-tag
+          --title "Consulta Autofill v${{ inputs.version }}"
+          --generate-notes
+          release-artifacts/SHA256SUMS
+          release-artifacts/release-manifest.json
+          release-artifacts/sbom.cdx.json
+          release-artifacts/packages/*.tgz
+        env:
+          GH_TOKEN: ${{ github.token }}
+      - run: find release-artifacts/cdn -type f -print0 | xargs -0 gh release upload "v${{ inputs.version }}" --clobber
+        env:
+          GH_TOKEN: ${{ github.token }}
