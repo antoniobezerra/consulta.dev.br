@@ -50,4 +50,15 @@ describe("release policy", () => {
       rmSync(outputDirectory, { recursive: true, force: true });
     }
   });
+
+  it("does not treat a missing QR-only artifact as a successful benchmark", () => {
+    const result = spawnSync("pnpm", ["--filter", "@consulta-dev/qr-engine", "run", "benchmark"], {
+      cwd: workspaceDirectory,
+      encoding: "utf8",
+      env: { ...process.env, QR_ONLY_OUTPUT_DIR: "" },
+    });
+
+    expect(result.status).not.toBe(0);
+    expect(`${result.stdout}${result.stderr}`).toContain("O benchmark não foi executado");
+  });
 });
