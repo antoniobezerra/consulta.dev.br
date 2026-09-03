@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 
-test("accepts only the origin-bound session handshake and presents private capture choices", async ({ page }) => {
+test("accepts only the origin-bound session handshake and presents private capture choices", async ({ page }, testInfo) => {
   const projectId = "pub_12345678";
   const sessionId = "afs_12345678";
   const nonce = "a".repeat(32);
@@ -108,4 +108,8 @@ test("accepts only the origin-bound session handshake and presents private captu
     const windowState = window as Window & { __autofillMessage?: { payload?: { fields?: Record<string, string> } } };
     return windowState.__autofillMessage?.payload?.fields?.full_name;
   })).toBe("Pessoa Editada");
+
+  if (testInfo.project.name.startsWith("mobile-")) {
+    await expect.poll(() => frame.locator("html").evaluate((root) => root.scrollWidth <= root.clientWidth + 1)).toBe(true);
+  }
 });
