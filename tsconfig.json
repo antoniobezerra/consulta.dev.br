@@ -10,7 +10,12 @@
     "isolatedModules": true,
     "verbatimModuleSyntax": true,
     "resolveJsonModule": true,
-    "types": ["node", "vitest/globals"]
+    "types": ["node", "vitest/globals"],
+    "paths": {
+      "@consulta-dev/autofill": ["./packages/autofill/src/index.ts"],
+      "@consulta-dev/autofill/protocol": ["./packages/autofill/src/protocol.ts"],
+      "@consulta-dev/qr-engine": ["./packages/qr-engine/src/index.ts"]
+    }
   },
   "include": [
     "packages/*/src/**/*.ts",
