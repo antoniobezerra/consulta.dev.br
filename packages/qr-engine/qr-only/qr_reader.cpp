@@ -48,7 +48,10 @@ QrReadResult readQrCodeFromPixmap(uintptr_t bufferPtr, int imageWidth, int image
 		thread_local const emscripten::val Uint8Array = emscripten::val::global("Uint8Array");
 		const auto& bytes = barcode.bytes();
 		return {
-			ToString(barcode.format()),
+			// This is a protocol value consumed by the JavaScript adapter, not a
+			// display label. Keep it stable even though ZXing's human-readable
+			// formatter currently emits "QR Code" with a space.
+			"QRCode",
 			Uint8Array.new_(emscripten::typed_memory_view(bytes.size(), bytes.data())),
 			ToString(barcode.error()),
 		};

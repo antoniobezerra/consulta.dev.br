@@ -31,6 +31,7 @@ describe("QR-only build recipe", () => {
       expect(cmake).toContain(`set(ZXING_ENABLE_${disabledFormat} OFF`);
     }
     expect(wrapper).toContain("BarcodeFormat::QRCode");
+    expect(wrapper).toContain('"QRCode"');
     expect(wrapper).not.toContain("stb_image");
     expect(wrapper).not.toContain("readBarcodesFromImage");
   });

@@ -24,3 +24,7 @@ saída. Isso impede que o exportador do Buildx copie o toolchain Emscripten
 inteiro para o artefato de CI.
 
 `qr-only:verify` confere hash, tamanho bruto, tamanho gzip e redução em relação ao baseline. A promoção ainda requer igualdade de bytes no corpus sintético e privado, benchmark no navegador, 100 ciclos de memória e a matriz de navegadores do runbook.
+
+No CI, `qr-only:test` gera um QR sintético local, chama o artefato Emscripten
+real com pixels RGBA e confirma o payload bruto e o identificador de formato
+canônico `QRCode`.
