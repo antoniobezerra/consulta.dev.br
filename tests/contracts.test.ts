@@ -37,6 +37,7 @@ describe("Autofill v1 JSON Schema", () => {
           expires_at: "2026-09-03T12:00:00.000Z",
           embed_url: "https://embed.consulta.dev.br/v1",
           allowed_document_types: ["cnh-e", "crlv-e"],
+          photo_enabled: false,
         },
       }),
     ).toBe(true);
@@ -74,6 +75,7 @@ describe("Autofill v1 JSON Schema", () => {
         protocol_version: 1,
         session_token: "a".repeat(32),
         payload_base64: "not base64!",
+        include_photo: false,
       }),
     ).toBe(false);
   });

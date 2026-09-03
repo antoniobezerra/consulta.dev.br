@@ -47,6 +47,9 @@
       "type": "string",
       "enum": [
         "INVALID_REQUEST",
+        "UNAUTHENTICATED",
+        "INVALID_API_KEY",
+        "INVALID_PRODUCT",
         "INVALID_ORIGIN",
         "INVALID_SESSION",
         "SESSION_EXPIRED",
@@ -55,6 +58,7 @@
         "PROJECT_NOT_FOUND",
         "PROJECT_DISABLED",
         "DOCUMENT_NOT_ALLOWED",
+        "PHOTO_NOT_ALLOWED",
         "CAMERA_DENIED",
         "CAMERA_UNAVAILABLE",
         "FILE_UNSUPPORTED",
@@ -103,7 +107,8 @@
         "project_id",
         "expires_at",
         "embed_url",
-        "allowed_document_types"
+        "allowed_document_types",
+        "photo_enabled"
       ],
       "properties": {
         "session_id": { "$ref": "#/$defs/sessionId" },
@@ -116,7 +121,8 @@
           "minItems": 1,
           "uniqueItems": true,
           "items": { "$ref": "#/$defs/decodedDocumentType" }
-        }
+        },
+        "photo_enabled": { "type": "boolean" }
       }
     },
     "sessionSuccessResponse": {
@@ -132,11 +138,12 @@
     "decodeRequest": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["protocol_version", "session_token", "payload_base64"],
+      "required": ["protocol_version", "session_token", "payload_base64", "include_photo"],
       "properties": {
         "protocol_version": { "$ref": "#/$defs/protocolVersion" },
         "session_token": { "$ref": "#/$defs/sessionToken" },
-        "payload_base64": { "$ref": "#/$defs/base64" }
+        "payload_base64": { "$ref": "#/$defs/base64" },
+        "include_photo": { "type": "boolean" }
       }
     },
     "photo": {

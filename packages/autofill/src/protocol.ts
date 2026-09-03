@@ -8,6 +8,9 @@ export type AutofillDecodedDocumentType = (typeof AUTOFILL_DECODED_DOCUMENT_TYPE
 
 export const AUTOFILL_ERROR_CODES = [
   "INVALID_REQUEST",
+  "UNAUTHENTICATED",
+  "INVALID_API_KEY",
+  "INVALID_PRODUCT",
   "INVALID_ORIGIN",
   "INVALID_SESSION",
   "SESSION_EXPIRED",
@@ -16,6 +19,7 @@ export const AUTOFILL_ERROR_CODES = [
   "PROJECT_NOT_FOUND",
   "PROJECT_DISABLED",
   "DOCUMENT_NOT_ALLOWED",
+  "PHOTO_NOT_ALLOWED",
   "CAMERA_DENIED",
   "CAMERA_UNAVAILABLE",
   "FILE_UNSUPPORTED",
@@ -53,6 +57,8 @@ export interface AutofillSession {
   expires_at: string;
   embed_url: string;
   allowed_document_types: AutofillDecodedDocumentType[];
+  /** True only when the project policy permits image delivery and the user confirms it. */
+  photo_enabled: boolean;
 }
 
 export interface AutofillSessionSuccessResponse {
@@ -68,6 +74,8 @@ export interface AutofillDecodeRequest {
   protocol_version: typeof AUTOFILL_PROTOCOL_VERSION;
   session_token: string;
   payload_base64: string;
+  /** User confirmation. The API still rejects it unless the project permits photos. */
+  include_photo: boolean;
 }
 
 export interface AutofillPhoto {
