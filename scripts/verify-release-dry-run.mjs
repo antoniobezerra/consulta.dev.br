@@ -36,6 +36,7 @@ function expectFailure(command, args, environment, message) {
 }
 
 try {
+  run("pnpm", ["licenses:verify"]);
   run("pnpm", ["release:prepare"]);
   run("pnpm", ["release:verify"]);
   expectFailure("pnpm", ["release:verify"], {

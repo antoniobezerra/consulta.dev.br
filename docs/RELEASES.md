@@ -35,6 +35,11 @@ O QR-only experimental não entra na coleção: ele continua opt-in até o corpu
 
 A workflow manual **Release artifacts** exige que a tag `v<versão>` já exista. Ela reconstrói, testa, prepara e verifica a coleção antes de qualquer publicação. Por padrão, ela apenas retém o artefato do GitHub Actions por 14 dias.
 
+Antes do build, a workflow executa `pnpm licenses:verify`. O gate compara a
+licença Apache-2.0 do código próprio, as versões/licenças das dependências que
+entram no produto ou na ferramenta de distribuição e os registros em
+`third-party/`, inclusive hash do baseline e receita QR-only.
+
 Os três jobs que efetivamente publicam (`npm`, GitHub Release e CDN) usam o ambiente GitHub `release`: ele só pode ser acionado a partir da `main` protegida e exige uma aprovação explícita antes de receber permissões de publicação. Antes de preparar qualquer artefato, a workflow confere que `v<versão>` existe, corresponde exatamente ao checkout e aponta para um commit alcançável pela `main`. A coleção grava essa tag e esse commit no manifest; antes da publicação, um checkout seguro da `main` verifica novamente que a tag remota ainda aponta para o mesmo commit. Na configuração atual de mantenedor único, a autoaprovação permanece permitida para não bloquear uma release legítima; ao adicionar outro mantenedor, habilite a proibição de autoaprovação e use revisão independente.
 
 - `publish_npm=true` publica exatamente os tarballs verificados com `npm publish --provenance`, usando Trusted Publishing/OIDC. Antes disso, um administrador do escopo `@consulta-dev` deve cadastrar esse repositório/workflow como publisher confiável; não use token permanente.

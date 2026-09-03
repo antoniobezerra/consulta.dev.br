@@ -29,6 +29,7 @@ jobs:
       - uses: docker/setup-buildx-action@v4
       - run: pnpm install --frozen-lockfile
       - run: pnpm sanitize:public
+      - run: pnpm licenses:verify
       - run: pnpm --filter @consulta-dev/qr-engine run qr-only:build
         env:
           QR_ONLY_OUTPUT_DIR: ${{ github.workspace }}/qr-only-artifact

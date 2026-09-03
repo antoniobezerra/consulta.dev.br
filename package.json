@@ -16,6 +16,7 @@
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "sanitize:public": "node ./scripts/verify-public-sanitization.mjs",
+    "licenses:verify": "node ./scripts/verify-licenses.mjs",
     "test": "vitest run",
     "test:e2e": "playwright test",
     "benchmark": "pnpm --filter @consulta-dev/qr-engine run benchmark",

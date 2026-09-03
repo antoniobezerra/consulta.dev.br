@@ -17,7 +17,7 @@ Use apenas fixtures sintéticas e irreversíveis para testes públicos.
 
 1. Crie uma branch curta a partir de `main`.
 2. Mantenha a mudança focada em uma responsabilidade.
-3. Execute `pnpm sanitize:public`, `pnpm lint`, `pnpm typecheck`, `pnpm test`, `pnpm build` e `pnpm test:e2e`.
+3. Execute `pnpm sanitize:public`, `pnpm licenses:verify`, `pnpm lint`, `pnpm typecheck`, `pnpm test`, `pnpm build` e `pnpm test:e2e`.
 4. Adicione um changeset para qualquer alteração em pacote publicável.
 5. Explique impacto de compatibilidade, segurança e privacidade no pull request.
 
