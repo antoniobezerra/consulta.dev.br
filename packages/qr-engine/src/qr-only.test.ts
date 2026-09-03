@@ -24,6 +24,7 @@ describe("experimental QR-only engine", () => {
     });
 
     expect(Array.from((await engine.scan(rgba())) || [])).toEqual([9, 8, 7]);
+    await expect(engine.memoryCapacityBytes()).resolves.toBe(64);
     expect(Array.from(memory.slice(8, 12))).toEqual([0, 0, 0, 0]);
     expect(freed).toBe(8);
     engine.dispose();

@@ -261,6 +261,17 @@ export class ConsultaQrOnlyEngine implements QrEngine {
     }
   }
 
+  /**
+   * Returns only the allocated WebAssembly heap capacity for diagnostics and
+   * promotion tests. It never exposes memory contents or document bytes.
+   */
+  async memoryCapacityBytes(): Promise<number> {
+    await this.prepare();
+    const module = await this.preparation;
+    if (!module) throw new Error("O módulo QR-only não foi preparado.");
+    return module.HEAPU8.byteLength;
+  }
+
   dispose(): void {
     if (this.disposed) return;
     this.disposed = true;
