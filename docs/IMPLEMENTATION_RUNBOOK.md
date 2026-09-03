@@ -45,8 +45,10 @@ público, uma sessão efêmera e endpoints same-origin do parceiro.
    validação estrita e ausência de logs de dados do documento.
 
 4. Antes de enviar código público, execute novamente `pnpm sanitize:public`.
-   A regra bloqueia segredos, arquivos de ambiente, bancos, backups e padrões
-   de credenciais Consulta. Use somente fixtures sintéticas.
+   A regra bloqueia segredos, arquivos de ambiente, bancos, backups, CPF
+   válido, PDFs, imagens/documentos binários, arquivos compactados e data URLs
+   extensas. Use somente fixtures sintéticas em texto/código; o único binário
+   aceito é o WASM baseline explicitamente verificado por hash e licença.
 
 ## QR-only: estado e promoção
 
