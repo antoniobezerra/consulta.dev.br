@@ -9,6 +9,10 @@ const manifestPath = resolve(outputDirectory, "release-manifest.json");
 const checksumPath = resolve(outputDirectory, "SHA256SUMS");
 const sbomPath = resolve(outputDirectory, "sbom.cdx.json");
 const expectedReleaseVersion = process.env.CONSULTA_EXPECTED_RELEASE_VERSION?.trim() || null;
+const expectedPackageNames = new Set([
+  "@consulta-dev/autofill",
+  "@consulta-dev/qr-engine",
+]);
 
 if (!existsSync(manifestPath) || !existsSync(checksumPath) || !existsSync(sbomPath)) {
   throw new Error("A coleção de release precisa conter release-manifest.json, sbom.cdx.json e SHA256SUMS.");
@@ -50,12 +54,20 @@ function verifyFile(path, expected) {
 }
 
 function tarballFile(archive, member) {
-  if (!/^package\/dist\/[A-Za-z0-9._/-]+$/.test(member)) {
+  if (!/^package\/(?:dist\/[A-Za-z0-9._/-]+|package\.json)$/.test(member)) {
     throw new Error("O membro declarado do tarball não é permitido.");
   }
   const result = spawnSync("tar", ["-xOf", archive, "--", member], { encoding: null });
   if (result.error || result.status !== 0 || !result.stdout) throw new Error(`Não foi possível extrair ${member} do tarball.`);
   return result.stdout;
+}
+
+function packageManifestFromTarball(archive) {
+  try {
+    return JSON.parse(tarballFile(archive, "package/package.json").toString("utf8"));
+  } catch {
+    throw new Error("O tarball não contém um package.json válido.");
+  }
 }
 
 function sourceRecord(value, releaseVersion) {
@@ -98,6 +110,9 @@ if (sbom?.bomFormat !== "CycloneDX" || sbom?.specVersion !== "1.5" || !Array.isA
   throw new Error("O SBOM CycloneDX da release é inválido.");
 }
 const source = sourceRecord(manifest.source, manifest.release_version);
+if (source.tag && manifest.release_version === "0.0.0") {
+  throw new Error("A versão de desenvolvimento 0.0.0 não pode ser uma release marcada.");
+}
 if (expectedReleaseVersion) {
   if (!isSemver(expectedReleaseVersion) || expectedReleaseVersion !== manifest.release_version) {
     throw new Error("A versão esperada não corresponde ao manifest de release.");
@@ -111,7 +126,34 @@ if (expectedReleaseVersion) {
   }
 }
 
+if (manifest.packages.length !== expectedPackageNames.size) {
+  throw new Error("A coleção de release não contém exatamente os pacotes públicos esperados.");
+}
+const recordedPackageNames = new Set();
+for (const item of manifest.packages) {
+  if (!item || typeof item !== "object" || typeof item.name !== "string" || typeof item.version !== "string" || typeof item.path !== "string") {
+    throw new Error("Um pacote registrado no manifest de release é inválido.");
+  }
+  if (!expectedPackageNames.has(item.name) || recordedPackageNames.has(item.name)) {
+    throw new Error("O manifest de release contém um pacote inesperado ou duplicado.");
+  }
+  if (!isSemver(item.version) || item.version !== manifest.release_version) {
+    throw new Error(`O pacote ${item.name} não tem a mesma versão semântica da coleção.`);
+  }
+  if (!/^packages\/[A-Za-z0-9._-]+\.tgz$/.test(item.path)) {
+    throw new Error(`O tarball de ${item.name} não está no caminho permitido da coleção.`);
+  }
+  recordedPackageNames.add(item.name);
+}
+
 for (const item of [...manifest.packages, ...manifest.cdn_assets]) verifyFile(item.path, item);
+
+for (const item of manifest.packages) {
+  const packageManifest = packageManifestFromTarball(insideOutput(item.path));
+  if (packageManifest.name !== item.name || packageManifest.version !== item.version) {
+    throw new Error(`O tarball de ${item.name} não corresponde ao nome e à versão registrados.`);
+  }
+}
 
 for (const equivalence of manifest.equivalences) {
   const archive = insideOutput(equivalence.tarball_path);

@@ -76,6 +76,7 @@ jobs:
           CONSULTA_RELEASE_VERSION: ${{ inputs.version }}
           CONSULTA_RELEASE_SOURCE_TAG: v${{ inputs.version }}
       - run: pnpm release:verify
+      - run: pnpm release:verify-consumer
       - uses: actions/upload-artifact@v6
         with:
           name: consulta-release-${{ inputs.version }}

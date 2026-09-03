@@ -58,6 +58,22 @@ function readJson(path) {
   return JSON.parse(readFileSync(path, "utf8"));
 }
 
+function isSemver(value) {
+  return typeof value === "string" && /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?$/.test(value);
+}
+
+function assertReleasePackageManifest(definition, manifest, source) {
+  if (!manifest || manifest.name !== definition.name || !isSemver(manifest.version)) {
+    throw new Error(`O package.json de ${definition.name} é inválido para publicação.`);
+  }
+  if (manifest.version !== releaseVersion) {
+    throw new Error(`A versão de ${definition.name} (${manifest.version}) precisa corresponder à coleção ${releaseVersion}. Execute pnpm version-packages antes de criar a tag.`);
+  }
+  if (source.tag && manifest.version === "0.0.0") {
+    throw new Error("A versão de desenvolvimento 0.0.0 não pode ser publicada a partir de uma tag.");
+  }
+}
+
 function fileInfo(path) {
   const bytes = readFileSync(path);
   return { bytes: bytes.byteLength, sha256: digest(bytes), integrity: integrity(bytes) };
@@ -140,6 +156,14 @@ function tarballFile(archive, source) {
   return result.stdout;
 }
 
+function tarballPackageManifest(archive) {
+  try {
+    return JSON.parse(tarballFile(archive, "package.json").toString("utf8"));
+  } catch {
+    throw new Error(`O tarball ${archive} não contém um package.json válido.`);
+  }
+}
+
 function packageComponent(name, manifest) {
   return {
     type: "library",
@@ -178,16 +202,21 @@ const components = [];
 
 for (const definition of packages) {
   const manifest = readJson(resolve(definition.directory, "package.json"));
+  assertReleasePackageManifest(definition, manifest, source);
   const sourcePath = resolve(definition.directory, definition.source);
   if (!existsSync(sourcePath)) throw new Error(`Build ausente para ${definition.name}: ${sourcePath}. Execute pnpm build antes da release.`);
   const archivePath = packPackage(definition);
+  const packedManifest = tarballPackageManifest(archivePath);
+  if (packedManifest.name !== manifest.name || packedManifest.version !== manifest.version) {
+    throw new Error(`O tarball de ${definition.name} não preserva o nome e a versão aprovados.`);
+  }
   const cdnPath = resolve(cdnDirectory, definition.cdnPath, `v${releaseVersion}`, definition.cdnFilename);
   mkdirSync(resolve(cdnPath, ".."), { recursive: true, mode: 0o700 });
   cpSync(sourcePath, cdnPath);
 
-  const source = readFileSync(sourcePath);
+  const sourceBytes = readFileSync(sourcePath);
   const packed = tarballFile(archivePath, definition.source);
-  if (!source.equals(packed)) {
+  if (!sourceBytes.equals(packed)) {
     throw new Error(`Os bytes publicados no CDN divergem de ${definition.name}/${definition.source} dentro do tarball.`);
   }
 

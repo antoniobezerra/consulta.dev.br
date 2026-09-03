@@ -22,6 +22,8 @@
     "benchmark": "pnpm --filter @consulta-dev/qr-engine run benchmark",
     "release:prepare": "node ./scripts/prepare-release-artifacts.mjs",
     "release:verify": "node ./scripts/verify-release-artifacts.mjs",
+    "release:verify-consumer": "node ./scripts/verify-release-consumer.mjs",
+    "release:consumer-dry-run": "node ./scripts/verify-release-consumer-dry-run.mjs",
     "release:dry-run": "node ./scripts/verify-release-dry-run.mjs",
     "release:publish-cdn": "node ./scripts/publish-cdn-release.mjs",
     "changeset": "changeset",

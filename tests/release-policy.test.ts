@@ -1,11 +1,15 @@
-import { readFileSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { spawnSync } from "node:child_process";
-import { resolve } from "node:path";
+import { tmpdir } from "node:os";
+import { join, resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 
 const workspaceDirectory = resolve(import.meta.dirname, "..");
 const packageManifest = JSON.parse(readFileSync(resolve(workspaceDirectory, "package.json"), "utf8")) as {
   scripts?: Record<string, string>;
+};
+const changesetConfiguration = JSON.parse(readFileSync(resolve(workspaceDirectory, ".changeset", "config.json"), "utf8")) as {
+  fixed?: string[][];
 };
 
 describe("release policy", () => {
@@ -18,5 +22,32 @@ describe("release policy", () => {
 
     expect(result.status).not.toBe(0);
     expect(`${result.stdout}${result.stderr}`).toContain("Publicação local bloqueada");
+  });
+
+  it("versions the compatible public SDK packages as one release", () => {
+    expect(changesetConfiguration.fixed).toContainEqual([
+      "@consulta-dev/autofill",
+      "@consulta-dev/qr-engine",
+    ]);
+  });
+
+  it("rejects a release collection whose version diverges from the SDK packages", () => {
+    const outputDirectory = mkdtempSync(join(tmpdir(), "consulta-release-version-policy-"));
+    try {
+      const result = spawnSync(process.execPath, ["scripts/prepare-release-artifacts.mjs"], {
+        cwd: workspaceDirectory,
+        encoding: "utf8",
+        env: {
+          ...process.env,
+          CONSULTA_RELEASE_VERSION: "999.0.0",
+          CONSULTA_RELEASE_OUTPUT_DIR: outputDirectory,
+        },
+      });
+
+      expect(result.status).not.toBe(0);
+      expect(`${result.stdout}${result.stderr}`).toContain("precisa corresponder à coleção 999.0.0");
+    } finally {
+      rmSync(outputDirectory, { recursive: true, force: true });
+    }
   });
 });

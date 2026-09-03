@@ -27,25 +27,86 @@ function writeFixture(assetPath = "cdn/embed/v1.0.0/assets/consulta-embed.js") {
   const bytes = Buffer.from("console.log('consulta autofill');\n");
   mkdirSync(dirname(join(directory, assetPath)), { recursive: true });
   writeFileSync(join(directory, assetPath), bytes);
+
+  const packages = [
+    {
+      name: "@consulta-dev/autofill",
+      archive: "packages/consulta-dev-autofill-1.0.0.tgz",
+      cdnPath: "cdn/autofill/v1.0.0/consulta-autofill.min.js",
+    },
+    {
+      name: "@consulta-dev/qr-engine",
+      archive: "packages/consulta-dev-qr-engine-1.0.0.tgz",
+      cdnPath: "cdn/qr-engine/v1.0.0/consulta-qr-engine.min.js",
+    },
+  ].map((definition, index) => {
+    const staging = join(directory, "staging", String(index));
+    const packageDirectory = join(staging, "package");
+    const distDirectory = join(packageDirectory, "dist");
+    const packageBytes = Buffer.from(`export const fixture = ${index};\n`);
+    mkdirSync(distDirectory, { recursive: true });
+    writeFileSync(join(packageDirectory, "package.json"), `${JSON.stringify({ name: definition.name, version: "1.0.0", type: "module" })}\n`);
+    writeFileSync(join(distDirectory, "index.js"), packageBytes);
+    mkdirSync(dirname(join(directory, definition.archive)), { recursive: true });
+    const packed = spawnSync("tar", ["-czf", join(directory, definition.archive), "-C", staging, "package"], { encoding: "utf8" });
+    if (packed.status !== 0 || packed.error) throw new Error("Não foi possível preparar fixture de pacote.");
+    mkdirSync(dirname(join(directory, definition.cdnPath)), { recursive: true });
+    writeFileSync(join(directory, definition.cdnPath), packageBytes);
+    return {
+      ...definition,
+      bytes: packageBytes,
+    };
+  });
+
   const manifest = {
     schema_version: 2,
     release_version: "1.0.0",
     source: { tag: null, commit: "a".repeat(40) },
-    packages: [],
-    cdn_assets: [{
-      path: assetPath,
-      content_type: "application/javascript; charset=utf-8",
-      bytes: bytes.byteLength,
-      sha256: sha256(bytes),
-      integrity: integrity(bytes),
-    }],
-    equivalences: [],
+    packages: packages.map((definition) => {
+      const archive = readFileSync(join(directory, definition.archive));
+      return {
+        name: definition.name,
+        version: "1.0.0",
+        path: definition.archive,
+        bytes: archive.byteLength,
+        sha256: sha256(archive),
+        integrity: integrity(archive),
+      };
+    }),
+    cdn_assets: [
+      {
+        path: assetPath,
+        content_type: "application/javascript; charset=utf-8",
+        bytes: bytes.byteLength,
+        sha256: sha256(bytes),
+        integrity: integrity(bytes),
+      },
+      ...packages.map((definition) => ({
+        path: definition.cdnPath,
+        content_type: "application/javascript; charset=utf-8",
+        bytes: definition.bytes.byteLength,
+        sha256: sha256(definition.bytes),
+        integrity: integrity(definition.bytes),
+      })),
+    ],
+    equivalences: packages.map((definition) => ({
+      package: definition.name,
+      tarball_path: definition.archive,
+      tarball_member: "package/dist/index.js",
+      cdn_path: definition.cdnPath,
+      sha256: sha256(definition.bytes),
+    })),
     qr_only_candidate_included: false,
   };
   const sbom = { bomFormat: "CycloneDX", specVersion: "1.5", components: [] };
   writeFileSync(join(directory, "release-manifest.json"), `${JSON.stringify(manifest)}\n`);
   writeFileSync(join(directory, "sbom.cdx.json"), `${JSON.stringify(sbom)}\n`);
-  writeFileSync(join(directory, "SHA256SUMS"), `${checksumEntries(directory, ["release-manifest.json", "sbom.cdx.json", assetPath])}\n`);
+  writeFileSync(join(directory, "SHA256SUMS"), `${checksumEntries(directory, [
+    "release-manifest.json",
+    "sbom.cdx.json",
+    assetPath,
+    ...packages.flatMap((definition) => [definition.archive, definition.cdnPath]),
+  ])}\n`);
   return directory;
 }
 

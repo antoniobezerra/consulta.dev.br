@@ -1,6 +1,6 @@
 # Releases
 
-Pacotes públicos são versionados com Changesets. A publicação final ocorre somente em CI por Trusted Publishing/OIDC; colaboradores não devem publicar versões manualmente.
+Pacotes públicos são versionados com Changesets, em um grupo fixo: `@consulta-dev/autofill` e `@consulta-dev/qr-engine` sempre recebem a mesma versão semântica compatível. A publicação final ocorre somente em CI por Trusted Publishing/OIDC; colaboradores não devem publicar versões manualmente.
 
 `pnpm release` aborta deliberadamente no checkout local. Use a workflow manual
 **Release artifacts** depois de criar a tag aprovada; ela é o único caminho
@@ -27,7 +27,27 @@ A CI comum executa `pnpm release:dry-run`: ela prepara e verifica uma coleção
 efêmera, incluindo o publicador de CDN em modo seco, sem rede, bucket ou
 credenciais reais.
 
-`CONSULTA_RELEASE_VERSION` identifica a coleção, os paths de CDN e a tag `v<versão>`; as versões individuais dos pacotes continuam registradas no manifest e são definidas pelos Changesets.
+Em seguida, a CI executa `pnpm release:consumer-dry-run`. Esse gate instala os
+dois tarballs em um projeto npm isolado e importa os exports públicos, para
+provar que o que será publicado pode ser consumido fora do monorepo. Ele pode
+usar o cache ou buscar apenas dependências públicas já declaradas; não recebe
+segredos de publicação e não publica nada.
+
+`CONSULTA_RELEASE_VERSION` identifica a coleção, os paths de CDN e a tag `v<versão>`. Como os dois pacotes são um SDK compatível de versão fixa, essa versão precisa ser exatamente a mesma nos dois `package.json`; o manifest e os tarballs são conferidos contra ela. A versão de desenvolvimento `0.0.0` só serve para ensaios sem tag e é recusada em uma publicação marcada.
+
+## Preparar a versão antes da tag
+
+Antes de disparar a workflow, aplique os Changesets pendentes e faça a tag com a mesma versão escrita nos dois pacotes. Por exemplo, para a primeira versão calculada como `0.1.0`:
+
+```bash
+pnpm version-packages
+git add .changeset packages/autofill packages/qr-engine
+git commit -m "chore(release): version packages"
+git tag v0.1.0
+git push origin main --follow-tags
+```
+
+Confira o diff gerado antes do commit. A workflow recusa uma tag cuja versão não corresponda aos dois pacotes, portanto ela não consegue publicar acidentalmente dois tarballs `0.0.0` nem repetir uma versão de apenas um componente.
 
 O QR-only experimental não entra na coleção: ele continua opt-in até o corpus privado e a matriz externa de navegadores aprovarem sua promoção.
 

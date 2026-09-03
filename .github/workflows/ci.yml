@@ -29,5 +29,6 @@ jobs:
       - run: pnpm test
       - run: pnpm build
       - run: pnpm release:dry-run
+      - run: pnpm release:consumer-dry-run
       - run: pnpm exec playwright install --with-deps chromium firefox webkit msedge
       - run: pnpm test:e2e
