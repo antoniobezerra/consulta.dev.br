@@ -5,7 +5,7 @@ Esta é uma receita experimental e reproduzível para um leitor WebAssembly que 
 ## Fonte fixada
 
 - Candidato e baseline: ZXing-C++ no commit fixado `a17fd9dc65d6aa0dd2f660fdfca7a6a6613d938f`, a mesma revisão usada por `zxing-wasm@3.1.3` (não é uma tag de release).
-- Emscripten `3.1.74`, imagem `linux/amd64` fixada por digest no `manifest.json` e no `Dockerfile`.
+- Emscripten `5.0.4`, imagem `linux/amd64` fixada por digest no `manifest.json` e no `Dockerfile`.
 - QR Code ligado; 1D, Aztec, Data Matrix, MaxiCode, PDF417, writers, C API, filesystem virtual e decoder de arquivos desligados.
 
 O wrapper recebe somente pixels RGBA do canvas. Assim, JPG/PNG/WebP/PDF continuam sendo convertidos localmente pelo embed e não adicionam um decoder de imagem ao WASM.

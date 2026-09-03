@@ -6,7 +6,7 @@ const recipeDirectory = resolve(import.meta.dirname, "..", "qr-only");
 const manifest = JSON.parse(readFileSync(resolve(recipeDirectory, "manifest.json"), "utf8")) as {
   zxing_cpp: { commit: string };
   baseline: { package: string; version: string; zxing_cpp_commit: string };
-  emscripten: { image: string; platform: string };
+  emscripten: { image: string; tag: string; platform: string };
   build: { formats: string[]; writers: boolean; maximum_wasm_bytes: number; minimum_size_reduction: number };
 };
 const cmake = readFileSync(resolve(recipeDirectory, "CMakeLists.txt"), "utf8");
@@ -23,8 +23,11 @@ describe("QR-only build recipe", () => {
       zxing_cpp_commit: "a17fd9dc65d6aa0dd2f660fdfca7a6a6613d938f",
     });
     expect(manifest.zxing_cpp.commit).toBe(manifest.baseline.zxing_cpp_commit);
-    expect(manifest.emscripten.image).toMatch(/^emscripten\/emsdk@sha256:[0-9a-f]{64}$/);
-    expect(manifest.emscripten.platform).toBe("linux/amd64");
+    expect(manifest.emscripten).toEqual({
+      image: "emscripten/emsdk@sha256:ef91f658e0104636cf40a702c99169273969cf04d939f4f08e5d0223965d5788",
+      tag: "5.0.4",
+      platform: "linux/amd64",
+    });
     expect(dockerfile).toContain(manifest.zxing_cpp.commit);
     expect(dockerfile).toContain(manifest.emscripten.image);
   });

@@ -11,8 +11,8 @@
     "zxing_cpp_commit": "a17fd9dc65d6aa0dd2f660fdfca7a6a6613d938f"
   },
   "emscripten": {
-    "image": "emscripten/emsdk@sha256:af45409f3199d88db4b1b03af0098532c8fb33a375ac257463eeb0a622870d06",
-    "tag": "3.1.74",
+    "image": "emscripten/emsdk@sha256:ef91f658e0104636cf40a702c99169273969cf04d939f4f08e5d0223965d5788",
+    "tag": "5.0.4",
     "platform": "linux/amd64"
   },
   "build": {
