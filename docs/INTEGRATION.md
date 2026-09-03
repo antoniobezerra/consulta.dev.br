@@ -197,6 +197,11 @@ sessão e tipo. Não acrescente dados do browser à métrica.
 
 A foto é desligada por padrão no projeto e na interface. Mesmo para um projeto com foto habilitada, a pessoa precisa marcar a caixa de confirmação antes do decode. O parceiro não deve alterar `include_photo` para `true` no servidor.
 
+Toda resposta de sucesso do decode deve incluir `photo`: use `null` quando a
+foto não foi solicitada ou não foi autorizada. Quando houver foto, envie
+somente JPEG ou PNG em base64 conforme o schema v1; o iframe rejeita campos,
+valores e imagens que ultrapassem os limites publicados.
+
 O funil de métricas é deliberadamente separado da sua analytics geral. Se
 usar `consulta:filled` no seu próprio produto, não encaminhe `fields`,
 `filled`, `preserved`, documento ou qualquer detalhe do evento ao Consulta.
