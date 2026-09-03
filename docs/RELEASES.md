@@ -15,9 +15,13 @@ Ela produz, em `.release-artifacts/` ou em `CONSULTA_RELEASE_OUTPUT_DIR` vazio:
 
 - tarballs exatos de `@consulta-dev/autofill` e `@consulta-dev/qr-engine`;
 - assets versionados do CDN, inclusive `autofill/v1.0.0/consulta-autofill.min.js` e o shell do embed;
-- `release-manifest.json` com SHA-256, tipo MIME e SRI dos assets;
+- `release-manifest.json` com SHA-256, tipo MIME, SRI e o commit/tag de origem dos assets;
 - `SHA256SUMS` e um SBOM CycloneDX 1.5;
 - prova de que os bytes JavaScript copiados ao CDN são os mesmos arquivos dentro dos tarballs npm.
+
+A CI comum executa `pnpm release:dry-run`: ela prepara e verifica uma coleção
+efêmera, incluindo o publicador de CDN em modo seco, sem rede, bucket ou
+credenciais reais.
 
 `CONSULTA_RELEASE_VERSION` identifica a coleção, os paths de CDN e a tag `v<versão>`; as versões individuais dos pacotes continuam registradas no manifest e são definidas pelos Changesets.
 
@@ -27,7 +31,7 @@ O QR-only experimental não entra na coleção: ele continua opt-in até o corpu
 
 A workflow manual **Release artifacts** exige que a tag `v<versão>` já exista. Ela reconstrói, testa, prepara e verifica a coleção antes de qualquer publicação. Por padrão, ela apenas retém o artefato do GitHub Actions por 14 dias.
 
-Os três jobs que efetivamente publicam (`npm`, GitHub Release e CDN) usam o ambiente GitHub `release`: ele só pode ser acionado a partir da `main` protegida e exige uma aprovação explícita antes de receber permissões de publicação. Antes de preparar qualquer artefato, a workflow confere que `v<versão>` existe, corresponde exatamente ao checkout e aponta para um commit alcançável pela `main`. Na configuração atual de mantenedor único, a autoaprovação permanece permitida para não bloquear uma release legítima; ao adicionar outro mantenedor, habilite a proibição de autoaprovação e use revisão independente.
+Os três jobs que efetivamente publicam (`npm`, GitHub Release e CDN) usam o ambiente GitHub `release`: ele só pode ser acionado a partir da `main` protegida e exige uma aprovação explícita antes de receber permissões de publicação. Antes de preparar qualquer artefato, a workflow confere que `v<versão>` existe, corresponde exatamente ao checkout e aponta para um commit alcançável pela `main`. A coleção grava essa tag e esse commit no manifest; antes da publicação, um checkout seguro da `main` verifica novamente que a tag remota ainda aponta para o mesmo commit. Na configuração atual de mantenedor único, a autoaprovação permanece permitida para não bloquear uma release legítima; ao adicionar outro mantenedor, habilite a proibição de autoaprovação e use revisão independente.
 
 - `publish_npm=true` publica exatamente os tarballs verificados com `npm publish --provenance`, usando Trusted Publishing/OIDC. Antes disso, um administrador do escopo `@consulta-dev` deve cadastrar esse repositório/workflow como publisher confiável; não use token permanente.
 - `publish_github_release=true` cria a GitHub Release da tag e envia os mesmos tarballs, manifest, checksums e SBOM. Se a release ou um asset já existir, a execução falha; publique uma nova versão em vez de alterar a anterior.

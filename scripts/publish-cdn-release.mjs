@@ -227,7 +227,7 @@ releaseVerifier();
 if (!existsSync(manifestPath)) throw new Error("release-manifest.json não foi encontrado na coleção verificada.");
 const manifest = JSON.parse(readFileSync(manifestPath, "utf8"));
 if (
-  manifest?.schema_version !== 1 ||
+  manifest?.schema_version !== 2 ||
   typeof manifest.release_version !== "string" ||
   !Array.isArray(manifest.cdn_assets) ||
   manifest.cdn_assets.length === 0 ||

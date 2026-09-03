@@ -28,8 +28,9 @@ function writeFixture(assetPath = "cdn/embed/v1.0.0/assets/consulta-embed.js") {
   mkdirSync(dirname(join(directory, assetPath)), { recursive: true });
   writeFileSync(join(directory, assetPath), bytes);
   const manifest = {
-    schema_version: 1,
+    schema_version: 2,
     release_version: "1.0.0",
+    source: { tag: null, commit: "a".repeat(40) },
     packages: [],
     cdn_assets: [{
       path: assetPath,
@@ -48,7 +49,7 @@ function writeFixture(assetPath = "cdn/embed/v1.0.0/assets/consulta-embed.js") {
   return directory;
 }
 
-function runPublisher(directory: string, options: { dryRun?: boolean; credentials?: boolean } = {}) {
+function runPublisher(directory: string, options: { dryRun?: boolean; credentials?: boolean; expectedReleaseVersion?: string } = {}) {
   const result = spawnSync(process.execPath, [publisher, ...(options.dryRun === false ? [] : ["--dry-run"])], {
     cwd: workspaceDirectory,
     encoding: "utf8",
@@ -61,6 +62,7 @@ function runPublisher(directory: string, options: { dryRun?: boolean; credential
       AWS_ACCESS_KEY_ID: options.credentials ? "test-access-key" : "",
       AWS_SECRET_ACCESS_KEY: options.credentials ? "test-secret-key" : "",
       AWS_SESSION_TOKEN: "",
+      CONSULTA_EXPECTED_RELEASE_VERSION: options.expectedReleaseVersion || "",
     },
   });
   return { status: result.status, output: `${result.stdout}${result.stderr}` };
@@ -92,5 +94,12 @@ describe("CDN release publisher", () => {
 
     expect(result.status).not.toBe(0);
     expect(result.output).toContain("Defina AWS_ACCESS_KEY_ID");
+  });
+
+  it("rejects a collection without the approved source tag", () => {
+    const result = runPublisher(writeFixture(), { expectedReleaseVersion: "1.0.0" });
+
+    expect(result.status).not.toBe(0);
+    expect(result.output).toContain("não foi preparada a partir da tag esperada");
   });
 });

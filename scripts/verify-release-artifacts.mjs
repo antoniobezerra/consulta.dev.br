@@ -8,6 +8,7 @@ const outputDirectory = resolve(process.env.CONSULTA_RELEASE_OUTPUT_DIR || resol
 const manifestPath = resolve(outputDirectory, "release-manifest.json");
 const checksumPath = resolve(outputDirectory, "SHA256SUMS");
 const sbomPath = resolve(outputDirectory, "sbom.cdx.json");
+const expectedReleaseVersion = process.env.CONSULTA_EXPECTED_RELEASE_VERSION?.trim() || null;
 
 if (!existsSync(manifestPath) || !existsSync(checksumPath) || !existsSync(sbomPath)) {
   throw new Error("A coleção de release precisa conter release-manifest.json, sbom.cdx.json e SHA256SUMS.");
@@ -20,6 +21,10 @@ function digest(bytes, algorithm = "sha256") {
 
 function integrity(bytes) {
   return `sha384-${createHash("sha384").update(bytes).digest("base64")}`;
+}
+
+function isSemver(value) {
+  return /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?$/.test(value);
 }
 
 function insideOutput(path) {
@@ -53,13 +58,57 @@ function tarballFile(archive, member) {
   return result.stdout;
 }
 
+function sourceRecord(value, releaseVersion) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    throw new Error("O manifest de release não registra a origem do código.");
+  }
+  const source = value;
+  if (typeof source.commit !== "string" || !/^[a-f0-9]{40}$/i.test(source.commit)) {
+    throw new Error("O commit de origem no manifest de release é inválido.");
+  }
+  if (source.tag !== null && source.tag !== `v${releaseVersion}`) {
+    throw new Error("A tag de origem no manifest de release não corresponde à versão.");
+  }
+  return source;
+}
+
+function remoteTagCommit(tag) {
+  const result = spawnSync("git", ["ls-remote", "origin", `refs/tags/${tag}`, `refs/tags/${tag}^{}`], {
+    cwd: workspaceDirectory,
+    encoding: "utf8",
+  });
+  if (result.error || result.status !== 0) throw new Error("Não foi possível consultar a tag remota da release.");
+  let direct = null;
+  let peeled = null;
+  for (const line of result.stdout.trim().split("\n")) {
+    const [commit, reference] = line.split(/\s+/);
+    if (!/^[a-f0-9]{40}$/i.test(commit)) continue;
+    if (reference === `refs/tags/${tag}`) direct = commit;
+    if (reference === `refs/tags/${tag}^{}`) peeled = commit;
+  }
+  return peeled || direct;
+}
+
 const manifest = JSON.parse(readFileSync(manifestPath, "utf8"));
 const sbom = JSON.parse(readFileSync(sbomPath, "utf8"));
-if (manifest?.schema_version !== 1 || typeof manifest.release_version !== "string" || !Array.isArray(manifest.packages) || !Array.isArray(manifest.cdn_assets) || !Array.isArray(manifest.equivalences) || manifest.qr_only_candidate_included !== false) {
+if (manifest?.schema_version !== 2 || typeof manifest.release_version !== "string" || !isSemver(manifest.release_version) || !Array.isArray(manifest.packages) || !Array.isArray(manifest.cdn_assets) || !Array.isArray(manifest.equivalences) || manifest.qr_only_candidate_included !== false) {
   throw new Error("O manifest de release não corresponde à coleção permitida.");
 }
 if (sbom?.bomFormat !== "CycloneDX" || sbom?.specVersion !== "1.5" || !Array.isArray(sbom.components)) {
   throw new Error("O SBOM CycloneDX da release é inválido.");
+}
+const source = sourceRecord(manifest.source, manifest.release_version);
+if (expectedReleaseVersion) {
+  if (!isSemver(expectedReleaseVersion) || expectedReleaseVersion !== manifest.release_version) {
+    throw new Error("A versão esperada não corresponde ao manifest de release.");
+  }
+  if (source.tag !== `v${expectedReleaseVersion}`) {
+    throw new Error("A coleção de release não foi preparada a partir da tag esperada.");
+  }
+  const remoteCommit = remoteTagCommit(source.tag);
+  if (!remoteCommit || remoteCommit !== source.commit) {
+    throw new Error("A tag remota mudou desde a preparação da coleção de release.");
+  }
 }
 
 for (const item of [...manifest.packages, ...manifest.cdn_assets]) verifyFile(item.path, item);
@@ -90,6 +139,7 @@ for (const path of ["release-manifest.json", "sbom.cdx.json", ...manifest.packag
 console.log(JSON.stringify({
   success: true,
   release_version: manifest.release_version,
+  source,
   packages: manifest.packages.length,
   cdn_assets: manifest.cdn_assets.length,
   sbom_components: sbom.components.length,

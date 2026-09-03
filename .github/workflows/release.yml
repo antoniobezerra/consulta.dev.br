@@ -13,7 +13,7 @@ on:
         default: false
         type: boolean
       publish_github_release:
-        description: Criar GitHub Release e anexar a coleção verificada
+        description: Criar GitHub Release com a coleção verificada
         required: true
         default: false
         type: boolean
@@ -70,7 +70,10 @@ jobs:
       - run: pnpm build
       - run: pnpm exec playwright install --with-deps chromium firefox webkit msedge
       - run: pnpm test:e2e
-      - run: CONSULTA_RELEASE_VERSION=${{ inputs.version }} pnpm release:prepare
+      - run: pnpm release:prepare
+        env:
+          CONSULTA_RELEASE_VERSION: ${{ inputs.version }}
+          CONSULTA_RELEASE_SOURCE_TAG: v${{ inputs.version }}
       - run: pnpm release:verify
       - uses: actions/upload-artifact@v6
         with:
@@ -91,12 +94,15 @@ jobs:
     steps:
       - uses: actions/checkout@v6
         with:
-          ref: v${{ inputs.version }}
+          ref: main
       - uses: actions/download-artifact@v4
         with:
           name: consulta-release-${{ inputs.version }}
           path: release-artifacts
-      - run: CONSULTA_RELEASE_OUTPUT_DIR=release-artifacts node scripts/verify-release-artifacts.mjs
+      - run: node scripts/verify-release-artifacts.mjs
+        env:
+          CONSULTA_RELEASE_OUTPUT_DIR: release-artifacts
+          CONSULTA_EXPECTED_RELEASE_VERSION: ${{ inputs.version }}
       - run: |
           for archive in release-artifacts/packages/*.tgz; do
             npm publish "$archive" --access public --provenance
@@ -113,28 +119,34 @@ jobs:
     steps:
       - uses: actions/checkout@v6
         with:
-          ref: v${{ inputs.version }}
+          ref: main
       - uses: actions/download-artifact@v4
         with:
           name: consulta-release-${{ inputs.version }}
           path: release-artifacts
-      - run: CONSULTA_RELEASE_OUTPUT_DIR=release-artifacts node scripts/verify-release-artifacts.mjs
-      - run: >-
-          gh release create "v${{ inputs.version }}"
-          --verify-tag
-          --title "Consulta Autofill v${{ inputs.version }}"
-          --generate-notes
-          release-artifacts/SHA256SUMS
-          release-artifacts/release-manifest.json
-          release-artifacts/sbom.cdx.json
-          release-artifacts/packages/*.tgz
+      - run: node scripts/verify-release-artifacts.mjs
+        env:
+          CONSULTA_RELEASE_OUTPUT_DIR: release-artifacts
+          CONSULTA_EXPECTED_RELEASE_VERSION: ${{ inputs.version }}
+      - run: |
+          tag="v$RELEASE_VERSION"
+          gh release create "$tag" \
+            --verify-tag \
+            --title "Consulta Autofill $tag" \
+            --generate-notes \
+            release-artifacts/SHA256SUMS \
+            release-artifacts/release-manifest.json \
+            release-artifacts/sbom.cdx.json \
+            release-artifacts/packages/*.tgz
         env:
           GH_TOKEN: ${{ github.token }}
+          RELEASE_VERSION: ${{ inputs.version }}
       # Semantic release assets are immutable. A repeated filename must fail
       # instead of silently replacing an asset attached to an approved tag.
-      - run: find release-artifacts/cdn -type f -print0 | xargs -0 gh release upload "v${{ inputs.version }}"
+      - run: find release-artifacts/cdn -type f -print0 | xargs -0 gh release upload "v$RELEASE_VERSION"
         env:
           GH_TOKEN: ${{ github.token }}
+          RELEASE_VERSION: ${{ inputs.version }}
 
   publish-cdn:
     name: Publish verified immutable CDN assets
@@ -147,7 +159,7 @@ jobs:
     steps:
       - uses: actions/checkout@v6
         with:
-          ref: v${{ inputs.version }}
+          ref: main
       - uses: pnpm/action-setup@v6
         with:
           version: 11.5.0
@@ -160,9 +172,14 @@ jobs:
         with:
           name: consulta-release-${{ inputs.version }}
           path: release-artifacts
-      - run: CONSULTA_RELEASE_OUTPUT_DIR=release-artifacts pnpm release:verify
-      - run: CONSULTA_RELEASE_OUTPUT_DIR=release-artifacts pnpm release:publish-cdn
+      - run: pnpm release:verify
         env:
+          CONSULTA_RELEASE_OUTPUT_DIR: release-artifacts
+          CONSULTA_EXPECTED_RELEASE_VERSION: ${{ inputs.version }}
+      - run: pnpm release:publish-cdn
+        env:
+          CONSULTA_RELEASE_OUTPUT_DIR: release-artifacts
+          CONSULTA_EXPECTED_RELEASE_VERSION: ${{ inputs.version }}
           CONSULTA_R2_ACCOUNT_ID: ${{ vars.CONSULTA_R2_ACCOUNT_ID }}
           CONSULTA_R2_BUCKET: ${{ vars.CONSULTA_R2_BUCKET }}
           CONSULTA_CDN_PUBLIC_BASE_URL: ${{ vars.CONSULTA_CDN_PUBLIC_BASE_URL }}

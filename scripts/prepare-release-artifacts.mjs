@@ -87,6 +87,43 @@ function run(command, args) {
   return result;
 }
 
+function gitRevision(args, description) {
+  const result = spawnSync("git", args, { cwd: workspaceDirectory, encoding: "utf8" });
+  const value = result.stdout?.trim();
+  if (result.error || result.status !== 0 || !value) {
+    throw new Error(`Não foi possível determinar ${description} da release.`);
+  }
+  return value;
+}
+
+function assertCleanWorktree() {
+  const result = spawnSync("git", ["status", "--porcelain=v1", "--untracked-files=all"], {
+    cwd: workspaceDirectory,
+    encoding: "utf8",
+  });
+  if (result.error || result.status !== 0) {
+    throw new Error("Não foi possível verificar se a árvore da release está limpa.");
+  }
+  if (result.stdout.trim()) {
+    throw new Error("Uma release marcada por tag exige uma árvore Git limpa.");
+  }
+}
+
+function releaseSource() {
+  const commit = gitRevision(["rev-parse", "HEAD"], "o commit de origem");
+  if (!/^[a-f0-9]{40}$/i.test(commit)) throw new Error("O commit de origem da release é inválido.");
+
+  const tag = process.env.CONSULTA_RELEASE_SOURCE_TAG?.trim() || null;
+  if (!tag) return { tag: null, commit };
+  assertCleanWorktree();
+  if (tag !== `v${releaseVersion}`) {
+    throw new Error("CONSULTA_RELEASE_SOURCE_TAG precisa corresponder à versão da coleção.");
+  }
+  const tagCommit = gitRevision(["rev-parse", "--verify", `${tag}^{commit}`], "a tag de origem");
+  if (tagCommit !== commit) throw new Error("O checkout não corresponde à tag de origem da release.");
+  return { tag, commit };
+}
+
 function packPackage(definition) {
   const before = new Set(readdirSync(packageDirectory));
   run("pnpm", ["--filter", definition.name, "pack", "--pack-destination", packageDirectory]);
@@ -132,6 +169,7 @@ function dependencyComponents(manifest) {
 
 mkdirSync(packageDirectory, { recursive: true, mode: 0o700 });
 mkdirSync(cdnDirectory, { recursive: true, mode: 0o700 });
+const source = releaseSource();
 
 const packageRecords = [];
 const cdnAssets = [];
@@ -199,8 +237,9 @@ const sbom = {
 };
 
 const releaseManifest = {
-  schema_version: 1,
+  schema_version: 2,
   release_version: releaseVersion,
+  source,
   packages: packageRecords.sort((left, right) => left.name.localeCompare(right.name)),
   cdn_assets: cdnAssets.sort((left, right) => left.path.localeCompare(right.path)),
   equivalences,
@@ -220,6 +259,7 @@ writeFileSync(resolve(outputDirectory, "SHA256SUMS"), `${checksums}\n`, { encodi
 console.log(JSON.stringify({
   success: true,
   release_version: releaseVersion,
+  source,
   packages: packageRecords.length,
   cdn_assets: cdnAssets.length,
   qr_only_candidate_included: false,
