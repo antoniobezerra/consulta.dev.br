@@ -99,7 +99,11 @@ test("places an accessible camera trigger in a native field and fills through th
       state.__consultaAutofillDocumentFilled = (event as CustomEvent<{ filled?: string[]; preserved?: string[] }>).detail;
     });
     form.append(fieldLabel, field);
-    document.body.replaceChildren(form);
+    const outside = document.createElement("button");
+    outside.id = "outside-focus-target";
+    outside.type = "button";
+    outside.textContent = "Fora do modal";
+    document.body.replaceChildren(form, outside);
   }, { componentUrl: moduleUrl, label: triggerLabel, evaluatedProjectId: projectId });
 
   const trigger = page.getByRole("button", { name: triggerLabel });
@@ -119,6 +123,13 @@ test("places an accessible camera trigger in a native field and fills through th
 
   const frame = page.frameLocator('iframe[title="Scanner Consulta Autofill"]');
   await expect(frame.getByRole("heading", { name: "Como prefere ler o documento?" })).toBeVisible();
+  const focusClass = await page.evaluate(() => {
+    document.querySelector<HTMLButtonElement>("#outside-focus-target")?.focus();
+    const field = document.querySelector<HTMLElement>("consulta-autofill-field");
+    const autofill = field?.shadowRoot?.querySelector<HTMLElement>("consulta-autofill");
+    return autofill?.shadowRoot?.activeElement?.className;
+  });
+  expect(focusClass).toBe("close");
   await expect.poll(async () => page.evaluate(() => {
     const state = window as Window & { __consultaAutofillPort?: MessagePort };
     return Boolean(state.__consultaAutofillPort);
@@ -151,6 +162,20 @@ test("places an accessible camera trigger in a native field and fills through th
   })).toEqual({ document: ["full_name"], field: ["full_name"] });
   await expect(input).toHaveValue("Pessoa Sintética");
   await expect(iframe).toHaveCount(0);
+  const focusRestored = await page.evaluate(() => {
+    const field = document.querySelector<HTMLElement>("consulta-autofill-field");
+    const autofill = field?.shadowRoot?.querySelector<HTMLElement>("consulta-autofill");
+    return {
+      document: document.activeElement?.tagName || null,
+      field: field?.shadowRoot?.activeElement?.tagName || null,
+      autofill: autofill?.shadowRoot?.activeElement?.className || null,
+    };
+  });
+  expect(focusRestored).toEqual({
+    document: "CONSULTA-AUTOFILL-FIELD",
+    field: "CONSULTA-AUTOFILL",
+    autofill: "trigger trigger-icon",
+  });
   await expect.poll(() => metricBodies.map((body) => (body as { event?: string }).event).sort()).toEqual([
     "closed",
     "confirmed",

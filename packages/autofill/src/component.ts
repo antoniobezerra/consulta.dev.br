@@ -130,6 +130,14 @@ function valueSetter(element: HTMLInputElement | HTMLTextAreaElement | HTMLSelec
   return setter ? (value) => setter.call(element, value) : null;
 }
 
+function activeElementAcrossShadowRoots(): HTMLElement | null {
+  let active: Element | null = document.activeElement;
+  while (active instanceof HTMLElement && active.shadowRoot?.activeElement instanceof HTMLElement) {
+    active = active.shadowRoot.activeElement;
+  }
+  return active instanceof HTMLElement ? active : null;
+}
+
 function cameraIcon(): SVGSVGElement {
   const namespace = "http://www.w3.org/2000/svg";
   const icon = document.createElementNS(namespace, "svg");
@@ -171,6 +179,7 @@ export class ConsultaAutofillElement extends HTMLElementBase {
     this.render();
     window.addEventListener("message", this.handleWindowMessage);
     window.addEventListener("keydown", this.handleKeydown);
+    window.addEventListener("focusin", this.handleFocusIn, true);
     this.emit("consulta:ready", { protocol_version: AUTOFILL_PROTOCOL_VERSION });
   }
 
@@ -182,8 +191,8 @@ export class ConsultaAutofillElement extends HTMLElementBase {
   async open(): Promise<void> {
     if (this.modal || this.requestAbort) return;
     this.requestAbort = new AbortController();
-    this.setTriggerBusy(true);
     this.showLoading();
+    this.setTriggerBusy(true);
 
     try {
       const session = await this.createPartnerSession(this.requestAbort.signal);
@@ -229,6 +238,7 @@ export class ConsultaAutofillElement extends HTMLElementBase {
     this.close();
     window.removeEventListener("message", this.handleWindowMessage);
     window.removeEventListener("keydown", this.handleKeydown);
+    window.removeEventListener("focusin", this.handleFocusIn, true);
   }
 
   private render(): void {
@@ -260,7 +270,10 @@ export class ConsultaAutofillElement extends HTMLElementBase {
   }
 
   private showLoading(): void {
-    this.previousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    const active = activeElementAcrossShadowRoots();
+    // WebKit can report <body> while dispatching a click from a nested shadow
+    // root. Returning to the trigger is preferable to leaving focus nowhere.
+    this.previousFocus = active && active !== document.body ? active : this.trigger;
     const overlay = this.createDialog();
     const content = document.createElement("div");
     content.className = "loading";
@@ -618,6 +631,13 @@ export class ConsultaAutofillElement extends HTMLElementBase {
       event.preventDefault();
       this.close();
     }
+  };
+
+  /** Keeps a modal dialog modal even when the trigger lives inside nested Shadow DOM. */
+  private readonly handleFocusIn = (event: FocusEvent): void => {
+    const modal = this.modal;
+    if (!modal || event.composedPath().includes(modal)) return;
+    modal.querySelector<HTMLButtonElement>(".close")?.focus();
   };
 }
 
