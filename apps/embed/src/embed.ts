@@ -4,10 +4,11 @@ import {
   type AutofillDecodedDocument,
   type AutofillFrameMessage,
 } from "@consulta-dev/autofill/protocol";
-import { ConsultaQrOnlyEngine, FallbackQrEngine, ZXingWasmQrEngine, type QrEngine } from "@consulta-dev/qr-engine";
 import { AnnotationMode, getDocument, GlobalWorkerOptions } from "pdfjs-dist/build/pdf.mjs";
 import pdfWorkerUrl from "pdfjs-dist/build/pdf.worker.min.mjs?url";
 import "./embed.css";
+import { EmbedQrScanner } from "./qr-scanner.js";
+import { MAX_QR_PIXELS } from "./qr-worker-protocol.js";
 
 const PROJECT_ID_PATTERN = /^pub_[A-Za-z0-9_-]{8,128}$/;
 const NONCE_PATTERN = /^[A-Za-z0-9_-]{16,256}$/;
@@ -167,20 +168,11 @@ function fieldLabel(key: string): string {
   return labels[key] || key.replaceAll("_", " ").replace(/\b\w/g, (letter) => letter.toUpperCase());
 }
 
-function qrEngine(): QrEngine {
-  const baseline = new ZXingWasmQrEngine({ wasmUrl: readerWasmUrl });
-  // A versão QR-only é opt-in por URLs versionadas no ambiente de deploy. Se
-  // ela falhar ao iniciar, o fallback é o baseline já testado; sem URLs, não
-  // há request nem comportamento experimental no cliente.
-  if (!qrOnlyModuleUrl || !qrOnlyWasmUrl) return baseline;
-  return new FallbackQrEngine({
-    primary: new ConsultaQrOnlyEngine({ moduleUrl: qrOnlyModuleUrl, wasmUrl: qrOnlyWasmUrl }),
-    fallback: baseline,
-  });
-}
-
 class EmbedController {
-  private readonly engine: QrEngine = qrEngine();
+  private readonly engine = new EmbedQrScanner({
+    baselineWasmUrl: readerWasmUrl,
+    ...(qrOnlyModuleUrl && qrOnlyWasmUrl ? { qrOnlyModuleUrl, qrOnlyWasmUrl } : {}),
+  });
   private readonly panel: HTMLElement;
   private readonly status: HTMLElement;
   private port: MessagePort | null = null;
@@ -327,7 +319,7 @@ class EmbedController {
     if (this.video.readyState < HTMLMediaElement.HAVE_CURRENT_DATA || !this.video.videoWidth || !this.video.videoHeight) return this.schedule(250);
     this.scanning = true;
     try {
-      const payload = await this.engine.scan(this.videoImage());
+      const payload = await this.scanImage(this.videoImage());
       if (payload) { this.payload = payload; this.stopCamera(); this.setStatus("QR Code encontrado."); return this.confirmPayload(); }
       if (manual) this.setStatus("Ainda não encontramos um QR Code. Aproxime o documento e tente novamente.");
     } catch {
@@ -347,6 +339,68 @@ class EmbedController {
     context.drawImage(this.video, 0, 0, width, height); const image = context.getImageData(0, 0, width, height); canvas.width = 1; canvas.height = 1; return image;
   }
 
+  private async scanImage(image: ImageData): Promise<Uint8Array | null> {
+    try {
+      return await this.engine.scan(image);
+    } finally {
+      // The Worker owns the transferred buffer after postMessage; in the
+      // compatibility path this clears the main-thread copy instead.
+      if (image.data.byteLength) image.data.fill(0);
+    }
+  }
+
+  private imageDataFromDrawable(source: CanvasImageSource, naturalWidth: number, naturalHeight: number): ImageData {
+    if (!Number.isSafeInteger(naturalWidth) || !Number.isSafeInteger(naturalHeight) || naturalWidth < 1 || naturalHeight < 1) {
+      throw new Error("Não foi possível preparar a imagem para o leitor QR.");
+    }
+    const scale = Math.min(1, Math.sqrt(MAX_QR_PIXELS / (naturalWidth * naturalHeight)));
+    const width = Math.max(1, Math.round(naturalWidth * scale));
+    const height = Math.max(1, Math.round(naturalHeight * scale));
+    const canvas = document.createElement("canvas");
+    canvas.width = width;
+    canvas.height = height;
+    try {
+      const context = canvas.getContext("2d", { willReadFrequently: true });
+      if (!context) throw new Error("Não foi possível preparar a imagem para o leitor QR.");
+      context.drawImage(source, 0, 0, width, height);
+      return context.getImageData(0, 0, width, height);
+    } finally {
+      canvas.width = 1;
+      canvas.height = 1;
+    }
+  }
+
+  private async imageDataFromFile(file: Blob): Promise<ImageData> {
+    if (typeof createImageBitmap === "function") {
+      try {
+        const bitmap = await createImageBitmap(file);
+        try {
+          return this.imageDataFromDrawable(bitmap, bitmap.width, bitmap.height);
+        } finally {
+          bitmap.close();
+        }
+      } catch {
+        // Fall through to Image for browsers that expose createImageBitmap but
+        // cannot decode this image format through it.
+      }
+    }
+    const objectUrl = URL.createObjectURL(file);
+    const image = new Image();
+    try {
+      await new Promise<void>((resolve, reject) => {
+        image.onload = () => resolve();
+        image.onerror = () => reject(new Error("Não foi possível abrir esta imagem."));
+        image.src = objectUrl;
+      });
+      return this.imageDataFromDrawable(image, image.naturalWidth, image.naturalHeight);
+    } finally {
+      image.onload = null;
+      image.onerror = null;
+      image.src = "";
+      URL.revokeObjectURL(objectUrl);
+    }
+  }
+
   private filePicker(accept: string): void {
     const input = document.createElement("input"); input.type = "file"; input.accept = accept; input.className = "hidden";
     input.addEventListener("change", () => { const file = input.files?.[0]; input.remove(); if (file) void this.scanFile(file); });
@@ -359,7 +413,7 @@ class EmbedController {
     if (!pdf && !file.type.startsWith("image/")) return this.error("Envie uma imagem (JPG, PNG ou WebP) ou um PDF.");
     this.stopCamera(); this.loading("Lendo o documento", pdf ? "Procurando o QR nas páginas iniciais do PDF…" : "Procurando o QR na imagem…");
     try {
-      const payload = pdf ? await this.scanPdf(file) : await this.engine.scan(file);
+      const payload = pdf ? await this.scanPdf(file) : await this.scanImage(await this.imageDataFromFile(file));
       if (!payload) throw new Error("Não encontramos um QR Code neste arquivo.");
       this.payload = payload; this.setStatus("QR Code encontrado."); this.confirmPayload();
     } catch (cause) {
@@ -381,7 +435,14 @@ class EmbedController {
           const viewport = page.getViewport({ scale }); const canvas = document.createElement("canvas"); canvas.width = Math.max(1, Math.floor(viewport.width)); canvas.height = Math.max(1, Math.floor(viewport.height));
           const context = canvas.getContext("2d", { willReadFrequently: true }); if (!context) throw new Error("Não foi possível renderizar o PDF.");
           await page.render({ canvas, viewport, annotationMode: AnnotationMode.DISABLE }).promise;
-          const result = await this.engine.scan(context.getImageData(0, 0, canvas.width, canvas.height)); canvas.width = 1; canvas.height = 1;
+          const image = context.getImageData(0, 0, canvas.width, canvas.height);
+          let result: Uint8Array | null;
+          try {
+            result = await this.scanImage(image);
+          } finally {
+            canvas.width = 1;
+            canvas.height = 1;
+          }
           if (result) return result;
         } finally { page.cleanup(); }
       }

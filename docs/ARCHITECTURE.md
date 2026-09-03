@@ -32,3 +32,5 @@ O [contrato de deploy do embed](EMBED_DEPLOYMENT.md) define como calcular a CSP 
 ## QR Engine
 
 O contrato público do engine é `prepare()`, `scan()` e `dispose()`. O baseline é `zxing-wasm`; a versão QR-only baseada em ZXing-C++ só será promovida quando cumprir os gates de tamanho, desempenho, igualdade de bytes e memória definidos no plano privado.
+
+A leitura do embed acontece em um Worker de módulo hospedado pela própria origem do iframe. A thread principal prepara pixels RGBA de câmera, imagem ou PDF e transfere seu `ArrayBuffer` para o Worker; o buffer é apagado no Worker depois da leitura. O retorno contém somente os bytes do QR necessários ao fluxo já existente e é transferido de volta sem imagem, arquivo, foto ou telemetria. Se o Worker não puder concluir o handshake de configuração antes de receber pixels, há fallback de compatibilidade para o leitor principal; um erro durante uma leitura já transferida não migra silenciosamente o documento entre engines.

@@ -6,6 +6,7 @@ on:
     branches: [main]
     paths:
       - "packages/qr-engine/**"
+      - "apps/embed/**"
       - ".github/workflows/qr-only.yml"
 
 permissions:

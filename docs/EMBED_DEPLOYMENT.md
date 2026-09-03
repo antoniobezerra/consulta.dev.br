@@ -40,8 +40,8 @@ X-Content-Type-Options: nosniff
 ```
 
 Adapte a lista de `script-src`, `style-src`, `connect-src` e `worker-src`
-somente aos domínios versionados realmente usados no release. O Worker do PDF,
-o WASM e a folha de estilos precisam ser entregues por essa allowlist; nunca
+somente aos domínios versionados realmente usados no release. Os Workers do PDF
+e do QR, o WASM e a folha de estilos precisam ser entregues por essa allowlist; nunca
 habilite `unsafe-eval`, `unsafe-inline` ou `*` como atalho. O CSS do embed é
 emitido como asset estático versionado e `script-src` jamais pode receber uma
 exceção inline.

@@ -1,4 +1,5 @@
 import { ConsultaQrOnlyEngine, ZXingWasmQrEngine, type QrEngine } from "@consulta-dev/qr-engine";
+import { EmbedQrScanner } from "./qr-scanner.js";
 
 type BenchmarkFixture = {
   width: number;
@@ -14,6 +15,7 @@ type BenchmarkOptions = {
 };
 
 type BenchmarkResult = {
+  worker_probe: true;
   fixture: { width: number; height: number; pixels: number };
   samples: number;
   scans_per_sample: number;
@@ -108,11 +110,30 @@ async function timedSample(engine: QrEngine, image: ImageData, expectedSha256: s
   }
 }
 
+async function verifyWorkerProbe(image: ImageData & { expectedSha256: string }, options: BenchmarkOptions): Promise<void> {
+  const pixels = new Uint8ClampedArray(image.data);
+  const workerImage = new ImageData(pixels, image.width, image.height);
+  const scanner = new EmbedQrScanner({
+    baselineWasmUrl: readerWasmUrl,
+    qrOnlyModuleUrl: options.candidateModuleUrl,
+    qrOnlyWasmUrl: options.candidateWasmUrl,
+  });
+  try {
+    await scanner.prepare();
+    if (!scanner.usingWorker) throw new Error("O benchmark não conseguiu iniciar o Worker QR.");
+    await scanExpected(scanner, workerImage, image.expectedSha256);
+  } finally {
+    if (workerImage.data.byteLength) workerImage.data.fill(0);
+    scanner.dispose();
+  }
+}
+
 export async function runQrBenchmark(options: BenchmarkOptions): Promise<BenchmarkResult> {
   if (!Number.isFinite(options.maximumSlowdownPercent) || options.maximumSlowdownPercent < 0) {
     throw new Error("O orçamento de desempenho do QR-only é inválido.");
   }
   const image = await fetchFixture();
+  await verifyWorkerProbe(image, options);
   const baseline = new ZXingWasmQrEngine({ wasmUrl: readerWasmUrl });
   const candidate = new ConsultaQrOnlyEngine({
     moduleUrl: options.candidateModuleUrl,
@@ -162,6 +183,7 @@ export async function runQrBenchmark(options: BenchmarkOptions): Promise<Benchma
       throw new Error(`O candidato ficou ${slowdownPercent.toFixed(2)}% mais lento; máximo permitido: ${options.maximumSlowdownPercent}%.`);
     }
     return {
+      worker_probe: true,
       fixture: { width: image.width, height: image.height, pixels: image.width * image.height },
       samples: MEASURED_SCANS,
       scans_per_sample: SCANS_PER_SAMPLE,
