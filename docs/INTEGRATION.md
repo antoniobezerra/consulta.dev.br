@@ -28,7 +28,36 @@ Cada exemplo em [`examples/backend`](../examples/backend) implementa essa ponte 
 
 ## 2. Adicione o componente ao formulário
 
-Quando o pacote estiver publicado, carregue uma versão exata pelo npm ou pelo CDN oficial. Para desenvolvimento, importe o build local do monorepo.
+Quando o pacote estiver publicado, carregue uma versão exata pelo npm ou pelo CDN oficial. Para desenvolvimento, importe o build local do monorepo. Em produção via CDN, use o arquivo e o `integrity` registrados no `release-manifest.json` da mesma release; não use aliases mutáveis nem uma URL de branch.
+
+```html
+<script
+  type="module"
+  src="https://cdn.consulta.dev.br/autofill/v1.0.0/consulta-autofill.min.js"
+  integrity="sha384-<valor-do-release-manifest>"
+  crossorigin="anonymous"></script>
+```
+
+### Campo com câmera embutida (recomendado)
+
+`<consulta-autofill-field>` deixa o input nativo no seu formulário e coloca um botão de câmera acessível dentro dele. É o modo mais curto para páginas HTML, sem montar modal, SVG ou JavaScript do parceiro.
+
+```html
+<form id="cadastro">
+  <label for="nome">Nome completo</label>
+  <consulta-autofill-field
+    project-id="pub_..."
+    endpoint="/api/consulta-autofill"
+    document-type="cnh-e"
+    label="Abrir Scanner de Câmera para preencher nome">
+    <input id="nome" name="name" data-consulta-field="full_name" autocomplete="name" />
+  </consulta-autofill-field>
+</form>
+```
+
+O controle deve ser filho direto do componente. Ele continua sendo um `input`, `textarea` ou `select` normal no DOM do parceiro: validação nativa, `FormData`, máscaras e bindings de framework permanecem funcionando. Após a revisão, o Autofill ainda pode preencher os demais campos mapeados do mesmo formulário.
+
+### Botão separado
 
 ```html
 <form id="cadastro">

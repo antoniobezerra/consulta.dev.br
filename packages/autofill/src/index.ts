@@ -1,8 +1,10 @@
 export const AUTOFILL_PACKAGE_NAME = "@consulta-dev/autofill";
 
 import { defineConsultaAutofill } from "./component.js";
+import { defineConsultaAutofillField } from "./field.js";
 
 export { ConsultaAutofillElement, defineConsultaAutofill } from "./component.js";
+export { ConsultaAutofillFieldElement, defineConsultaAutofillField } from "./field.js";
 
 export {
   AUTOFILL_DECODED_DOCUMENT_TYPES,
@@ -14,7 +16,10 @@ export {
   isAutofillFrameMessage,
 } from "./protocol.js";
 
-if (typeof window !== "undefined") defineConsultaAutofill();
+if (typeof window !== "undefined") {
+  defineConsultaAutofill();
+  defineConsultaAutofillField();
+}
 
 export type {
   AutofillDecodeData,

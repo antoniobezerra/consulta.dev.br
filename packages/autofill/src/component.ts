@@ -27,6 +27,9 @@ const styleText = `
   .trigger:hover:not(:disabled) { background: #004eeb; }
   .trigger:focus-visible, .close:focus-visible { outline: 3px solid #84adff; outline-offset: 3px; }
   .trigger:disabled { cursor: wait; opacity: .7; }
+  .trigger-icon { justify-content: center; width: 2.45rem; height: 2.45rem; padding: .5rem; color: #155eef; background: transparent; box-shadow: none; }
+  .trigger-icon:hover:not(:disabled) { background: rgb(21 94 239 / .12); }
+  .trigger-icon svg { display: block; }
   .overlay { position: fixed; z-index: 2147483000; inset: 0; display: grid; place-items: center; padding: 1rem; background: rgb(16 24 40 / .58); }
   .dialog { position: relative; display: grid; grid-template-rows: auto minmax(20rem, 1fr); width: min(100%, 34rem); height: min(100%, 44rem); overflow: hidden; border-radius: 1rem; background: white; box-shadow: 0 24px 48px rgb(16 24 40 / .28); }
   .dialog-header { display: flex; align-items: center; justify-content: space-between; gap: 1rem; min-height: 3.5rem; padding: 0 .85rem 0 1rem; border-bottom: 1px solid #eaecf0; }
@@ -111,6 +114,29 @@ function valueSetter(element: HTMLInputElement | HTMLTextAreaElement | HTMLSelec
   return setter ? (value) => setter.call(element, value) : null;
 }
 
+function cameraIcon(): SVGSVGElement {
+  const namespace = "http://www.w3.org/2000/svg";
+  const icon = document.createElementNS(namespace, "svg");
+  icon.setAttribute("viewBox", "0 0 24 24");
+  icon.setAttribute("width", "20");
+  icon.setAttribute("height", "20");
+  icon.setAttribute("fill", "none");
+  icon.setAttribute("stroke", "currentColor");
+  icon.setAttribute("stroke-width", "2");
+  icon.setAttribute("stroke-linecap", "round");
+  icon.setAttribute("stroke-linejoin", "round");
+  icon.setAttribute("aria-hidden", "true");
+
+  const body = document.createElementNS(namespace, "path");
+  body.setAttribute("d", "M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z");
+  const lens = document.createElementNS(namespace, "circle");
+  lens.setAttribute("cx", "12");
+  lens.setAttribute("cy", "13");
+  lens.setAttribute("r", "3");
+  icon.append(body, lens);
+  return icon;
+}
+
 export class ConsultaAutofillElement extends HTMLElementBase {
   private readonly shadow = this.attachShadow({ mode: "open" });
   private modal: HTMLElement | null = null;
@@ -188,7 +214,15 @@ export class ConsultaAutofillElement extends HTMLElementBase {
     const button = document.createElement("button");
     button.type = "button";
     button.className = "trigger";
-    button.textContent = this.getAttribute("label") || "Escanear documento";
+    const label = this.getAttribute("label") || "Escanear documento";
+    if (this.getAttribute("trigger-variant") === "icon") {
+      button.classList.add("trigger-icon");
+      button.setAttribute("aria-label", label);
+      button.title = label;
+      button.append(cameraIcon());
+    } else {
+      button.textContent = label;
+    }
     button.setAttribute("aria-haspopup", "dialog");
     button.addEventListener("click", () => void this.open());
     this.shadow.append(style, button);
@@ -431,10 +465,22 @@ export class ConsultaAutofillElement extends HTMLElementBase {
         throw new Error("target-form precisa ser um seletor CSS válido.");
       }
     } else {
-      target = this.closest<HTMLElement>("form");
+      target = this.closestFormAcrossShadowRoots();
     }
     if (!target) throw new Error("Não foi possível encontrar o formulário definido em target-form.");
     return target;
+  }
+
+  private closestFormAcrossShadowRoots(): HTMLElement | null {
+    const ownForm = this.closest<HTMLElement>("form");
+    if (ownForm) return ownForm;
+    let root: Node = this.getRootNode();
+    while (root instanceof ShadowRoot) {
+      const form = root.host.closest<HTMLElement>("form");
+      if (form) return form;
+      root = root.host.getRootNode();
+    }
+    return null;
   }
 
   private post(type: AutofillFrameMessage["type"], payload?: unknown): void {

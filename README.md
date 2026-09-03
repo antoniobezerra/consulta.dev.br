@@ -59,6 +59,8 @@ Leia [a arquitetura](docs/ARCHITECTURE.md) e a [política de segurança](SECURIT
 
 O guia com o componente, a ponte same-origin, CSP/Permissions Policy e exemplos de servidor está em [docs/INTEGRATION.md](docs/INTEGRATION.md).
 
+Para a integração HTML mais curta, use `<consulta-autofill-field>`: ele posiciona o botão de câmera acessível dentro de um `input` nativo e abre o fluxo hospedado após o toque.
+
 Os exemplos de ponte segura para Next.js, Express, Laravel, FastAPI e Go ficam em [examples/backend](examples/backend).
 
 O schema de referência do contrato v1 está em [packages/autofill/contracts/v1/autofill.schema.json](packages/autofill/contracts/v1/autofill.schema.json). Ele é distribuído junto com `@consulta-dev/autofill`.
