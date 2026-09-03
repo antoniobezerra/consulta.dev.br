@@ -1,5 +1,5 @@
 import { execFileSync } from "node:child_process";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { publicSanitizationViolations } from "./public-sanitization-policy.mjs";
 
@@ -19,10 +19,21 @@ function publicCandidatePaths() {
   return [...new Set(paths)];
 }
 
+function candidateBytes(filePath) {
+  const workingPath = resolve(workspaceDirectory, filePath);
+  if (existsSync(workingPath)) return readFileSync(workingPath);
+  // A tracked file can be renamed or deleted locally before staging. Inspect
+  // its index blob rather than crashing or silently omitting committed source.
+  return execFileSync("git", ["show", `:${filePath}`], {
+    cwd: workspaceDirectory,
+    encoding: "buffer",
+  });
+}
+
 const violations = [];
 const candidates = publicCandidatePaths();
 for (const filePath of candidates) {
-  const bytes = readFileSync(resolve(workspaceDirectory, filePath));
+  const bytes = candidateBytes(filePath);
   for (const violation of publicSanitizationViolations(filePath, bytes)) violations.push(`${filePath}: ${violation}`);
 }
 
