@@ -31,7 +31,7 @@
     "release": "node ./scripts/refuse-local-release.mjs"
   },
   "devDependencies": {
-    "@changesets/cli": "^3.0.1",
+    "@changesets/cli": "^3.0.2",
     "@eslint/js": "^10.0.1",
     "@playwright/test": "^1.62.1",
     "@types/node": "^26.4.1",
